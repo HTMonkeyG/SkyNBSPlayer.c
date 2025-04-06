@@ -15,22 +15,7 @@ void sendTick(HWND hWnd, SkyMusicTick_t *tick) {
   }
 }
 
-int buildKeysFrom(NBSTickEffective *tick, SkyNoteKeys_t *keys, int length) {
-  NBSNoteBlock *note;
-  int j = 0;
-  for (int i = 0; i < min(tick->noteCtr, length); i++) {
-    note = &tick->notes[i];
-    if (note->instrument == 0
-      && 39 <= note->key
-      && note->key <= 63) {
-      if (CVT[note->key - 39] != INVALID)
-        keys[j] = CVT[note->key - 39], j++;
-    }
-  }
-  return j;
-}
-
-void buildKeysFrom_(NBSTickEffective *t, u16 *keyDown, u16 *keyUp) {
+void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp) {
   NBSNoteBlock *note;
   *keyDown = *keyUp = 0;
   for (int i = 0; i < t->noteCtr; i++) {

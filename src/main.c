@@ -56,21 +56,34 @@ int checkCanPlay() {
 void CALLBACK tick(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dw1, DWORD dw2) {
   NBSTickEffective *lastTick;
   SkyNoteKeys_t keys[100];
+  SkyMusicTick_t mt;
   float _t;
-  int l;
+  int ps = checkCanPlay()
+    , l;
+  u16 ku, kd;
 
-  if (currentTick == NULL) {
+  if (currentTick == NULL || ps == 2) {
     SetEvent(hFinished);
     return;
-  }
+  } else if (ps == 1)
+    return;
+
   tickCount++;
   _t = (int)((float)currentTick->tick / tempo * 100);
   if (_t <= tickCount) {
     lastTick = currentTick;
     currentTick = currentTick->next;
-    l = buildKeysFrom(lastTick, keys, 100);
+    buildKeysFrom_(lastTick, &kd, &ku);
     printf("%d %d %f %llu %d %d aaa\r", _t, lastTick->tick, tempo, currentTick, l, tickCount);
-    sendKeySet(skyGameWnd, keys, l);
+    
+    // Most simple way to send notes to the game LOL 
+    mt.keyUp = 0;
+    mt.keyDown = kd;
+    sendTick(skyGameWnd, &mt);
+    Sleep(10);
+    mt.keyUp = ku;
+    mt.keyDown = 0;
+    sendTick(skyGameWnd, &mt);
   }
 }
 

@@ -7,3 +7,4 @@
 
 #include "note.h"
 #include "nbs.h"
+#include "macros.h"

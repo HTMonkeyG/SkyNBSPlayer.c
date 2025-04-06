@@ -6,6 +6,7 @@
 #include "macros.h"
 #include "vector.h"
 
+/*
 typedef enum {
   C0 = 0x0001,
   D0 = 0x0002,
@@ -23,7 +24,7 @@ typedef enum {
   B1 = 0x2000,
   C2 = 0x4000,
   INVALID = -1
-} SkyNoteMask_t;
+} SkyNoteMask_t;*/
 
 typedef enum {
   C0 = 0x0001,
@@ -81,6 +82,6 @@ static const SkyNoteKeys_t CVT[25] = {
 
 void sendKeySet(HWND hWnd, SkyNoteKeys_t *notes, int length);
 void sendTick(HWND hWnd, SkyMusicTick_t *tick);
-int buildKeysFrom(NBSTickEffective *tick, SkyNoteKeys_t *keys, int length);
+void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp);
 
 #endif
