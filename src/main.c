@@ -73,7 +73,7 @@ void CALLBACK tick(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dw1, DWORD dw2) 
   if (_t <= tickCount) {
     lastTick = currentTick;
     currentTick = currentTick->next;
-    buildKeysFrom_(lastTick, &kd, &ku);
+    buildKeysFrom(lastTick, &kd, &ku);
     printf("%d %d %f %llu %d %d aaa\r", _t, lastTick->tick, tempo, currentTick, l, tickCount);
     
     // Most simple way to send notes to the game LOL 
@@ -137,6 +137,7 @@ int main() {
   stopTick(&id);
   freeNBSFile(&nbs);
   fclose(file);
+  printf("Completed.  ");
   while (1);
   return 0;
 }
