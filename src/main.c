@@ -3,11 +3,14 @@
 HWND skyGameWnd;
 HANDLE hFinished;
 NBS nbs;
-char isPlaying = 0;
-int tickCount = -1;
-float tempo;
-int aaa = 0;
-NBSTickEffective *currentTick = NULL;
+Vector_t builtTicks = {0};
+i64 tickIndex;
+u64 maxIndex;
+i8 isPlaying = 0
+  , stopState = 0;
+i32 tickCount = -1;
+f32 tempo;
+SkyMusicTick_t *currentTick = NULL;
 
 /** 
  * Check what the player needs to do in the next real tick.
@@ -54,36 +57,24 @@ int checkCanPlay() {
  * intended to keep the above limitations.
  */
 void CALLBACK tick(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dw1, DWORD dw2) {
-  NBSTickEffective *lastTick;
-  SkyNoteKeys_t keys[100];
-  SkyMusicTick_t mt;
+  SkyMusicTick_t *lastTick;
   float _t;
-  int ps = checkCanPlay()
-    , l;
-  u16 ku, kd;
+  int ps = checkCanPlay();
 
-  if (currentTick == NULL || ps == 2) {
+  if (ps == 2 || tickIndex >= maxIndex) {
     SetEvent(hFinished);
+    stopState = tickIndex >= maxIndex ? 0 : 1;
     return;
   } else if (ps == 1)
     return;
 
   tickCount++;
-  _t = (int)((float)currentTick->tick / tempo * 100);
-  if (_t <= tickCount) {
+  if (((i32)currentTick->tick) <= tickCount) {
     lastTick = currentTick;
-    currentTick = currentTick->next;
-    buildKeysFrom(lastTick, &kd, &ku);
-    printf("%d %d %f %llu %d %d aaa\r", _t, lastTick->tick, tempo, currentTick, l, tickCount);
-    
-    // Most simple way to send notes to the game LOL 
-    mt.keyUp = 0;
-    mt.keyDown = kd;
-    sendTick(skyGameWnd, &mt);
-    Sleep(10);
-    mt.keyUp = ku;
-    mt.keyDown = 0;
-    sendTick(skyGameWnd, &mt);
+    tickIndex++;
+    vec_at(&builtTicks, tickIndex, (void *)&currentTick);
+    printf("%x %x %x t%d %d aaa\n", lastTick, lastTick->keyDown, lastTick->keyUp, lastTick->tick, tickCount);
+    sendTick(skyGameWnd, lastTick);
   }
 }
 
@@ -110,6 +101,7 @@ size_t getFileSize(FILE* file) {
 
 int main() {
   UINT id = 0;
+
   skyGameWnd = FindWindowW(NULL, L"光·遇");
   if (!skyGameWnd) {
     MessageBoxW(NULL, L"游戏未运行", L"Error", MB_ICONERROR);
@@ -126,9 +118,12 @@ int main() {
   char *buffer = malloc(fileSize);
   fread(buffer, 1, fileSize, file);
   readNBSFile(buffer, 0, &nbs);
-  currentTick = nbs.ticks;
-  tickCount = -200;
-  tempo = (float)nbs.header.tempo / 100.;
+  SkyAutoPlayOptions_t options = {0};
+  buildTicksFrom(&options, &nbs, &builtTicks);
+  tickCount = 0;//-200;
+  tickIndex = 0;
+  vec_size(&builtTicks, &maxIndex);
+  vec_at(&builtTicks, 0, (void **)&currentTick);
   isPlaying = 1;
   hFinished = CreateEventW(NULL, 1, 0, L"__PLAY_DONE__");
   SetForegroundWindow(skyGameWnd);
@@ -137,7 +132,14 @@ int main() {
   stopTick(&id);
   freeNBSFile(&nbs);
   fclose(file);
-  printf("Completed.  ");
+  switch (stopState) {
+    case 0:
+      printf("Completed.  ");
+      break;
+    case 1:
+      printf("Stopped by exit piano keyboard.  ");
+      break;
+  }
   while (1);
   return 0;
 }

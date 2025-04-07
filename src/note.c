@@ -1,13 +1,5 @@
 #include "note.h"
 
-void sendKeySet(HWND hWnd, SkyNoteKeys_t *notes, int length) {
-  for (int i = 0; i < length; i++) {
-    SendMessageW(hWnd, WM_KEYDOWN, KEYCODES[notes[i]], KEYS[notes[i]] << 16);
-    Sleep(20);
-    SendMessageW(hWnd, WM_KEYUP, KEYCODES[notes[i]], (KEYS[notes[i]] << 16) | 1 | (0B110 << 29));
-  }
-}
-
 void sendTick(HWND hWnd, SkyMusicTick_t *tick) {
   for (int i = 0, j = 1; i < 15; i++, j <<= 1) {
     (tick->keyDown & j) && SendMessageW(hWnd, WM_KEYDOWN, KEYCODES[i], KEYS[i] << 16);
@@ -31,36 +23,117 @@ void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp) {
   }
 }
 
+int mergeTickTo(Vector_t *v, SkyMusicTick_t *mtr, i16 minInteval) {
+  i64 i = -1;
+  u64 size;
+  SkyMusicTick_t *lastTick;
+  vec_size(v, &size);
+  if (!size) {
+    vec_push(v, mtr);
+    return 0;
+  }
+
+  vec_at(v, i, (void *)&lastTick);
+  if (lastTick->tick > mtr->tick) {
+    // Need to insert given tick into the list.
+    // Check tick overlapping and inteval between ticks.
+    while (lastTick->tick > mtr->tick) {
+      // Find the last tick before current tick.
+      i--;
+      if (!vec_at(v, i, (void *)&lastTick))
+        break;
+    }
+    if (lastTick->tick == mtr->tick) {
+      // First check.
+      if (
+        lastTick->keyDown & mtr->keyDown
+        || lastTick->keyUp & mtr->keyUp
+        || lastTick->keyDown & mtr->keyUp
+        || lastTick->keyUp & mtr->keyDown
+      )
+        // Error code 1:
+        // Tick overlapped.
+        return 1;
+      // Merge.
+      lastTick->keyDown |= mtr->keyDown;
+      lastTick->keyUp |= mtr->keyUp;
+      return 0;
+    } else if (mtr->tick - lastTick->tick < minInteval) {
+      // Second check.
+      if (
+        lastTick->keyDown & mtr->keyDown
+        || lastTick->keyUp & mtr->keyUp
+        || lastTick->keyDown & mtr->keyUp
+        || lastTick->keyUp & mtr->keyDown
+      )
+        // Error code 2:
+        // Tick before is too close or duplicated events.
+        return 2;
+      else if (i < -1) {
+        // Find the first tick after current tick.
+        vec_at(v, i + 1, (void *)&lastTick);
+        if (lastTick->tick - mtr->tick < minInteval && (
+          lastTick->keyDown & mtr->keyDown
+          || lastTick->keyUp & mtr->keyUp
+          || lastTick->keyDown & mtr->keyUp
+          || lastTick->keyUp & mtr->keyDown
+        ))
+          // Error code 3:
+          // Tick after is too close or duplicated events.
+          return 3;
+      }
+    }
+    // Insert.
+    vec_splice(v, i, 0, mtr, 1);
+  } else
+    vec_push(v, mtr);
+
+  return 0;
+}
+
 /** Convert NBS to key event ticks. */
 int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
   f32 tempo = (f32)nbs->header.tempo / 100.
     , tps = options->highTps ? 1000 : 100;
   u32 lastActiveEvent[15] = {0}
-    , time = 0
+    , time = -100
     , th;
+  i32 err;
   u16 keyDown, keyUp;
   NBSTickEffective *tick = nbs->ticks;
-  SkyMusicTick_t mtr, mti, lastTick;
+  SkyMusicTick_t mtr, mti, *lastTick;
 
   vec_init(v, sizeof(SkyMusicTick_t));
   th = (int)((float)tick->tick / tempo * tps);
   while (tick) {
+    time++;
     // Simulate tick by tick
     if (time < th)
       continue;
 
     // Build real tick
-    buildKeysFrom_(tick, &keyDown, &keyUp);
+    buildKeysFrom(tick, &keyDown, &keyUp);
+    mtr.tick = th;
     mtr.keyDown = keyDown;
     mtr.keyUp = 0;
+    mti.keyDown = 0;
+    mti.keyUp = keyUp;
 
     // Build inteval tick
     // 10ms inteval
     mti.tick = mtr.tick + tps / 100;
 
+    // Merge ticks
+    if (err = mergeTickTo(v, &mtr, tps / 100))
+      return err;
+    if (err = mergeTickTo(v, &mti, tps / 100))
+      return err;
+
     // Next NBS tick
     tick = tick->next;
-    vec_push(v, &mtr);
-    vec_push(v, &mti);
+    if (tick)
+      th = (int)((float)tick->tick / tempo * tps);
   }
+  // Successfully built
+  return 0;
 }

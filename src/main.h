@@ -7,4 +7,5 @@
 
 #include "note.h"
 #include "nbs.h"
+#include "random.h"
 #include "macros.h"
