@@ -1,12 +1,5 @@
 #include "note.h"
 
-void sendTick(HWND hWnd, SkyMusicTick_t *tick) {
-  for (int i = 0, j = 1; i < 15; i++, j <<= 1) {
-    (tick->keyDown & j) && SendMessageW(hWnd, WM_KEYDOWN, KEYCODES[i], KEYS[i] << 16);
-    (tick->keyUp & j) && SendMessageW(hWnd, WM_KEYUP, KEYCODES[i], (KEYS[i] << 16) | 1 | (0B110 << 29));
-  }
-}
-
 void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp) {
   NBSNoteBlock *note;
   *keyDown = *keyUp = 0;
@@ -95,13 +88,12 @@ int mergeTickTo(Vector_t *v, SkyMusicTick_t *mtr, i16 minInteval) {
 int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
   f32 tempo = (f32)nbs->header.tempo / 100.
     , tps = options->highTps ? 1000 : 100;
-  u32 lastActiveEvent[15] = {0}
-    , time = -100
+  u32 time = -100
     , th;
   i32 err;
   u16 keyDown, keyUp;
   NBSTickEffective *tick = nbs->ticks;
-  SkyMusicTick_t mtr, mti, *lastTick;
+  SkyMusicTick_t mtr, mti;
 
   vec_init(v, sizeof(SkyMusicTick_t));
   th = (int)((float)tick->tick / tempo * tps);
@@ -124,9 +116,11 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
     mti.tick = mtr.tick + tps / 100;
 
     // Merge ticks
-    if (err = mergeTickTo(v, &mtr, tps / 100))
+    err = mergeTickTo(v, &mtr, tps / 100);
+    if (err)
       return err;
-    if (err = mergeTickTo(v, &mti, tps / 100))
+    err = mergeTickTo(v, &mti, tps / 100);
+    if (err)
       return err;
 
     // Next NBS tick

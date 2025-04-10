@@ -9,7 +9,7 @@ TARGET = skycol-nbs.exe
 BIN_TARGET = $(DIST_DIR)/$(TARGET)
 
 CC = gcc
-PARAM = #-Os -ffunction-sections -fdata-sections -Wl,--gc-sections -static -flto -s
+PARAM = -Wall -Os -ffunction-sections -fdata-sections -Wl,--gc-sections -static -flto -s
 LINK = -lwinmm
 
 $(BIN_TARGET): $(OBJ)

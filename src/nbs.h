@@ -60,12 +60,6 @@ typedef struct {
   NBSTickEffective *ticks;
 } NBS;
 
-static short readInt16LE(const char *buffer, size_t cursor);
-static int readInt32LE(const char *buffer, size_t cursor);
-static size_t readLengthedString(const char *buffer, size_t cursor, char **string);
-static size_t readHeader(const char *buffer, size_t cursor, NBSHeader *header);
-static size_t readNoteBlock(const char *buffer, size_t cursor, NBSNoteBlock *note);
-static size_t readEffectiveTick(const char *buffer, size_t cursor, NBSTickEffective *tickData, int *lastTick);
 size_t readNBSFile(const char *buffer, size_t cursor, NBS *nbs);
 void freeNBSFile(NBS *nbs);
 

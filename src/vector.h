@@ -1,3 +1,6 @@
+#ifndef _SKY_VECTOR_
+#define _SKY_VECTOR_
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -18,3 +21,5 @@ Vector_t *vec_splice(Vector_t *v, i64 start, i64 deleteCount, const void *elemen
 Vector_t *vec_from(Vector_t *v, i64 index, void *element);
 Vector_t *vec_at(Vector_t *v, i64 index, void **element);
 Vector_t *vec_size(Vector_t *v, size_t *result);
+
+#endif

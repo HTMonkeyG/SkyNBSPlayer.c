@@ -11,8 +11,7 @@ void MT_setSeed(RandomMT_t *mt, u32 seed) {
 }
 
 u32 MT_genRandInt32(RandomMT_t *mt) {
-  u32 t[624]
-    , x, y;
+  u32 x, y;
   if (mt->mti >= 624) {
     for (int i = 0; i < 624; i++) {
       x = (mt->mt[i] & UPPER_MASK) | (mt->mt[(i + 1) % 624] & LOWER_MASK);

@@ -63,7 +63,7 @@ static size_t readNoteBlock(const char *buffer, size_t cursor, NBSNoteBlock *not
 /** Read an effective tick. */
 static size_t readEffectiveTick(const char *buffer, size_t cursor, NBSTickEffective *tickData, int *lastTick) {
   size_t p = cursor, q;
-  int tickJmp = readInt16LE(buffer, p), curTick, noteCtr = 0, curLayer = -1, layerJmp;
+  int tickJmp = readInt16LE(buffer, p), curTick, noteCtr = 0, layerJmp;
   p += 2;
   if (!tickJmp)
     return p;
@@ -130,7 +130,8 @@ void freeNBSFile(NBS *nbs) {
   NBSTickEffective *r, *t;
   for (t = nbs->ticks; t; t = t->next) {
     free(t->notes);
-    t && (r = t);
+    if (t)
+      r = t;
   }
   for (t = r; t; t = t->prev)
     if (t->next)

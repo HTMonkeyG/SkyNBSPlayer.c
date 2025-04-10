@@ -1,7 +1,6 @@
 #ifndef _INC_SKY_NOTES_
 #define _INC_SKY_NOTES_
 
-#include <windows.h>
 #include "nbs.h"
 #include "macros.h"
 #include "vector.h"
@@ -60,7 +59,6 @@ static const SkyNoteMasks_t CVT[25] = {
   C2
 };
 
-void sendTick(HWND hWnd, SkyMusicTick_t *tick);
 void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp);
 int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v);
 

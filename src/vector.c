@@ -53,7 +53,7 @@ Vector_t *vec_pop(Vector_t *v, void *element) {
 }
 
 Vector_t *vec_splice(Vector_t *v, i64 start, i64 deleteCount, const void *elements, i64 elementCount) {
-  i64 s, i, pe, ms, e;
+  i64 s, pe, ms, e;
   void *p = NULL;
   if (!elements || !v)
     return NULL;

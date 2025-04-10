@@ -1,145 +1,103 @@
+/**
+ * Sky: CotL NBS Music Player
+ * 
+ * An autoplay tool designed for Netease edition of Sky on Windows.
+ * 
+ * Copyright (c) 2025 HTMonkeyG
+ * 
+ * (https://www.github.com/HTMonkeyG/SkyNBSPlayer)
+ */
+
 #include "main.h"
 
-HWND skyGameWnd;
-HANDLE hFinished;
+HWND hSkyGameWnd;
 NBS nbs;
 Vector_t builtTicks = {0};
-i64 tickIndex;
-u64 maxIndex;
-i8 isPlaying = 0
-  , stopState = 0;
-i32 tickCount = -1;
 f32 tempo;
 SkyMusicTick_t *currentTick = NULL;
+SkyAutoPlayOptions_t options = {0};
 
-/** 
- * Check what the player needs to do in the next real tick.
- */
-int checkCanPlay() {
-  CURSORINFO ci = { sizeof(CURSORINFO) };
-  RECT screenRect = { 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) }
-    , cr;
-  
-  if (!skyGameWnd || GetForegroundWindow() != skyGameWnd)
-    // The player isn't initialized or the game window is
-    // inactive.
-    // Need to pause playing.
-    return 1;
+i32 readNBS(wchar_t *path, NBS *nbs) {
+  FILE *file;
+  size_t fileSize;
 
-  if (GetClipCursor(&cr) && !EqualRect(&cr, &screenRect))
-    // Mouse is captured, this only occurs when the game
-    // window is dragged.
-    // Need to pause playing.
-    return 1;
-
-  if (GetCursorInfo(&ci) && !(ci.flags & CURSOR_SHOWING))
-    // Mouse is captured and hidden by the game.
-    // Need to stop playing.
-    return 2;
-
-  // Can play
-  return 0;
-}
-
-/**
- * Tick function of the player.
- * 
- * There's 2 types of tick in the player: real tick and inteval tick.
- * 
- * Real tick sends the KEYDOWN message, and inteval tick sends the
- * KEYUP message.
- * 
- * For every key, its key events be alternating between
- * WM_KEYDOWN and WM_KEYUP, and adjacent events must be separated by at
- * least 10ms.
- * 
- * Therefore, the inteval tick sends the WM_KEYUP message, and it's
- * intended to keep the above limitations.
- */
-void CALLBACK tick(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dw1, DWORD dw2) {
-  SkyMusicTick_t *lastTick;
-  float _t;
-  int ps = checkCanPlay();
-
-  if (ps == 2 || tickIndex >= maxIndex) {
-    SetEvent(hFinished);
-    stopState = tickIndex >= maxIndex ? 0 : 1;
-    return;
-  } else if (ps == 1)
-    return;
-
-  tickCount++;
-  if (((i32)currentTick->tick) <= tickCount) {
-    lastTick = currentTick;
-    tickIndex++;
-    vec_at(&builtTicks, tickIndex, (void *)&currentTick);
-    printf("%x %x %x t%d %d aaa\n", lastTick, lastTick->keyDown, lastTick->keyUp, lastTick->tick, tickCount);
-    sendTick(skyGameWnd, lastTick);
-  }
-}
-
-int startTick(UINT *id) {
-  TIMECAPS tc;
-  UINT res;
-  if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR)
+  if (!path || !nbs)
     return 0;
-  res = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
-  *id = timeSetEvent(10, 1, (LPTIMECALLBACK)tick, res, TIME_PERIODIC | TIME_CALLBACK_FUNCTION | TIME_KILL_SYNCHRONOUS );
+
+  file = _wfopen(path, L"rb");
+  if (!file)
+    return 0;
+
+  fseek(file, 0, SEEK_END);
+  fileSize = ftell(file);
+  rewind(file);
+
+  i08 *buffer = malloc(fileSize);
+  fread(buffer, 1, fileSize, file);
+  readNBSFile(buffer, 0, nbs);
+
+  free(buffer);
+  fclose(file);
+
   return 1;
 }
 
-void stopTick(UINT *id) {
-  timeKillEvent(*id);
-}
-
-size_t getFileSize(FILE* file) {
-  fseek(file, 0, SEEK_END);
-  size_t fileSize = ftell(file);
-  rewind(file);
-  return fileSize;
-}
-
 int main() {
-  UINT id = 0;
+  HANDLE hMutex;
+  SkyMusicPlayer_t player;
 
-  skyGameWnd = FindWindowW(NULL, L"光·遇");
-  if (!skyGameWnd) {
-    MessageBoxW(NULL, L"游戏未运行", L"Error", MB_ICONERROR);
+  hMutex = CreateMutexW(NULL, TRUE, L"__SKY_NBS__");
+  if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    MessageBoxW(NULL, L"已有实例正在运行", L"Error", MB_ICONERROR);
     return 1;
   }
 
-  FILE* file = fopen("example.nbs", "r");
-  if (file == NULL) {
+  // Get game window handle.
+  hSkyGameWnd = FindWindowW(NULL, L"光·遇");
+  while (!hSkyGameWnd) {
+    if (MessageBoxW(NULL, L"游戏未运行，是否重试？", L"Error", MB_ICONERROR | MB_YESNO) == IDNO)
+      return 1;
+    hSkyGameWnd = FindWindowW(NULL, L"光·遇");
+  }
+
+  if (!readNBS(L"example.nbs", &nbs)) {
     MessageBoxW(NULL, L"文件读取失败", L"Error", MB_ICONERROR);
     return 1;
   }
-
-  size_t fileSize = getFileSize(file);
-  char *buffer = malloc(fileSize);
-  fread(buffer, 1, fileSize, file);
-  readNBSFile(buffer, 0, &nbs);
-  SkyAutoPlayOptions_t options = {0};
   buildTicksFrom(&options, &nbs, &builtTicks);
-  tickCount = 0;//-200;
-  tickIndex = 0;
-  vec_size(&builtTicks, &maxIndex);
-  vec_at(&builtTicks, 0, (void **)&currentTick);
-  isPlaying = 1;
-  hFinished = CreateEventW(NULL, 1, 0, L"__PLAY_DONE__");
-  SetForegroundWindow(skyGameWnd);
-  startTick(&id);
-  WaitForSingleObject(hFinished, INFINITE);
-  stopTick(&id);
   freeNBSFile(&nbs);
-  fclose(file);
-  switch (stopState) {
-    case 0:
-      printf("Completed.  ");
+
+  SetForegroundWindow(hSkyGameWnd);
+
+  snCreatePlayer(&player, &options, hSkyGameWnd, &builtTicks);
+  Sleep(100);
+  snMusicPlay(&player);
+
+  while (1) {
+    if (player.state < 0)
       break;
-    case 1:
-      printf("Stopped by exit piano keyboard.  ");
+    if (player.state > 0)
+      snMusicPlay(&player);
+    Sleep(100);
+  }
+  switch (player.state) {
+    case STOPPED_EOF:
+      printf("Completed.");
+      break;
+    case STOPPED_ESC:
+      printf("Stopped by exit piano keyboard.");
+      break;
+    case STOPPED_PROG:
+      printf("Stopped by program.");
+      break;
+    case PAUSED_BG:
+      printf("Paused by leave game window.");
+      break;
+    default:
       break;
   }
   while (1);
+  ReleaseMutex(hMutex);
+  CloseHandle(hMutex);
   return 0;
 }

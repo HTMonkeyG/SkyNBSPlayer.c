@@ -2,7 +2,9 @@
 #define __SKY_MACROS__
 
 #define i8 char
+#define i08 char
 #define u8 unsigned char
+#define u08 unsigned char
 #define i16 short
 #define u16 unsigned short
 #define i32 int

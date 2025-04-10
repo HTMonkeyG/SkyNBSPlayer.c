@@ -9,3 +9,4 @@
 #include "nbs.h"
 #include "random.h"
 #include "macros.h"
+#include "player.h"
