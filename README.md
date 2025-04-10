@@ -10,7 +10,7 @@
 ## 使用方式
 **正在开发中**
 
-&emsp;进入[最新版界面](releases/latest)，并下载对应exe可执行文件至本地，双击运行即可。
+&emsp;进入[最新版界面](https://github.com/HTMonkeyG/SkyNBSPlayer-C/releases)，并下载对应exe可执行文件至本地，双击运行即可。
 
 ## 配置文件
 **该功能开发中。**
