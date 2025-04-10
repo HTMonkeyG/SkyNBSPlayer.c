@@ -80,6 +80,7 @@ int main() {
       snMusicPlay(&player);
     Sleep(100);
   }
+
   switch (player.state) {
     case STOPPED_EOF:
       printf("Completed.");

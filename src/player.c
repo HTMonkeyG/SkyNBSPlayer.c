@@ -102,6 +102,7 @@ static void CALLBACK snTick(
     // Get next tick.
     vec_at(player->builtTicks, player->tickIndex, (void *)&player->currentTick);
     // Send events to game window.
+    printf("tick-%d %x %x\n", player->tickCount, lastTick->keyDown, lastTick->keyUp);
     sendTick(player->hGameWnd, lastTick);
   }
 }

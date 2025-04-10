@@ -112,14 +112,14 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
     mti.keyUp = keyUp;
 
     // Build inteval tick
-    // 10ms inteval
-    mti.tick = mtr.tick + tps / 100;
+    // 20ms inteval
+    mti.tick = mtr.tick + 2 * tps / 100;
 
     // Merge ticks
-    err = mergeTickTo(v, &mtr, tps / 100);
+    err = mergeTickTo(v, &mtr, 2 * tps / 100);
     if (err)
       return err;
-    err = mergeTickTo(v, &mti, tps / 100);
+    err = mergeTickTo(v, &mti, 2 * tps / 100);
     if (err)
       return err;
 
