@@ -119,7 +119,7 @@ Vector_t *vec_at(Vector_t *v, i64 index, void **element) {
   if (index < 0)
     *element = v->begin + (index + s) * v->perElement;
   else
-    *element =  v->begin + index * v->perElement;
+    *element = v->begin + index * v->perElement;
   return v;
 }
 

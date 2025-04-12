@@ -18,10 +18,13 @@ static void sendTick(HWND hWnd, SkyMusicTick_t *tick) {
 int checkCanPlay(HWND hSkyGameWnd) {
   CURSORINFO ci = { sizeof(CURSORINFO) };
   RECT screenRect = {
-      0, 0,
-      GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)
-    }
-    , cr;
+    0, 0,
+    GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)
+  }, cr;
+
+#ifdef DEBUG_NO_PLAY_STATE_CHECK
+  return 0;
+#endif
   
   if (!hSkyGameWnd || GetForegroundWindow() != hSkyGameWnd)
     // The player isn't initialized or the game window is
@@ -67,17 +70,32 @@ static void CALLBACK snTick(
 ) {
   SkyMusicPlayer_t *player = (SkyMusicPlayer_t *)dwUser;
   SkyMusicTick_t *lastTick;
-  int ps = checkCanPlay(player->hGameWnd);
+  int ps = 0;
+
+  if (player->checkState <= 0) {
+    // Check state every 50ms.
+    ps = checkCanPlay(player->hGameWnd);
+    // Reset countdown.
+    player->checkState = 1000 / player->inteval / 20;
+    //printf("check - %d\n", player->tickCount);
+    if (!ps) {
+      player->savedTickCount = player->tickCount;
+      player->savedTickIndex = player->tickIndex;
+    }
+  }
+  player->checkState--;
 
   if (player->state != PLAYING)
     // Do nothing when isn't playing.
     return;
   if (player->state == STOPPED_PROG) {
+    // Stopped by program, but timer isn't killed.
     if (player->timerId)
       timeKillEvent(player->timerId);
     player->timerId = 0;
     return;
   } if (ps == 2 || player->tickIndex >= player->maxIndex) {
+    // Exit keyboard or EOF.
     // Need to kill timer and stop.
     timeKillEvent(player->timerId);
     player->timerId = 0;
@@ -101,8 +119,8 @@ static void CALLBACK snTick(
     player->tickIndex++;
     // Get next tick.
     vec_at(player->builtTicks, player->tickIndex, (void *)&player->currentTick);
+    //printf("tick-%d %x %x\n", player->tickCount, lastTick->keyDown, lastTick->keyUp);
     // Send events to game window.
-    printf("tick-%d %x %x\n", player->tickCount, lastTick->keyDown, lastTick->keyUp);
     sendTick(player->hGameWnd, lastTick);
   }
 }
@@ -124,6 +142,7 @@ i32 snCreatePlayer(
   res = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
   // Initialize timer.
   player->timerRes = res;
+  player->inteval = options->highTps ? 1 : 10;
   player->builtTicks = builtTicks;
   player->hGameWnd = hGameWnd;
   player->state = STOPPED_PROG;
@@ -142,23 +161,35 @@ i32 snMusicPlay(SkyMusicPlayer_t *player) {
     // Do nothing when the condition isn't met.
     return 0;
 
-  if (player->state > 0)
+  if (player->state > 0) {
     // Paused player, the timer isn't killed.
-    // Only sets the state.
+    if (player->state == PAUSED_BG) {
+      // Restore saved data.
+      // Only when the event is automatically processed by snTick.
+      player->tickCount = player->savedTickCount;
+      player->tickIndex = player->savedTickIndex;
+      vec_at(
+        player->builtTicks,
+        player->tickIndex,
+        (void **)&player->currentTick
+      );
+    }
+    // Set state.
     player->state = PLAYING;
-  else if (player->state < 0) {
+  } else if (player->state < 0) {
     // Stopped player, the timer is killed.
     if (player->timerId)
       // Kill the timer may exists.
       timeKillEvent(player->timerId);
     player->state = PLAYING;
+
     // Reinitialize player.
     player->tickCount = 0;
     player->tickIndex = 0;
     vec_size(player->builtTicks, &player->maxIndex);
     vec_at(player->builtTicks, 0, (void **)&player->currentTick);
     player->timerId = timeSetEvent(
-      10,
+      player->inteval,
       player->timerRes,
       (LPTIMECALLBACK)snTick,
       (DWORD_PTR)player,
@@ -178,9 +209,19 @@ i32 snMusicResume(SkyMusicPlayer_t *player) {
   if (player->timerId)
     timeKillEvent(player->timerId);
   player->state = PLAYING;
-  // Resume saved state.
+  if (player->state == STOPPED_ESC) {
+    // Restore saved data.
+    // Only when the event is automatically processed by snTick.
+    player->tickCount = player->savedTickCount;
+    player->tickIndex = player->savedTickIndex;
+    vec_at(
+      player->builtTicks,
+      player->tickIndex,
+      (void **)&player->currentTick
+    );
+  }
   player->timerId = timeSetEvent(
-    10,
+    player->inteval,
     player->timerRes,
     (LPTIMECALLBACK)snTick,
     (DWORD_PTR)player,

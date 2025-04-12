@@ -4,6 +4,8 @@
 #include "vector.h"
 #include "note.h"
 
+//#define DEBUG_NO_PLAY_STATE_CHECK
+
 typedef enum {
   /** Stopped by exit music keyboard. */
   STOPPED_ESC = -3,
@@ -20,15 +22,21 @@ typedef enum {
 } SkyMusicPlayState_t;
 
 typedef struct {
+  /* Constant values */
+  /** Current player state */
   SkyMusicPlayState_t state;
   u32 timerId;
   u32 timerRes;
+  u32 inteval;
   HWND hGameWnd;
   Vector_t *builtTicks;
   SkyMusicTick_t *currentTick;
   u64 maxIndex;
   i64 tickIndex;
   i32 tickCount;
+  i32 checkState;
+  i32 savedTickCount;
+  i64 savedTickIndex;
 } SkyMusicPlayer_t;
 
 i32 snCreatePlayer(

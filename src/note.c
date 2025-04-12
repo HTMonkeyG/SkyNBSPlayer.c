@@ -4,7 +4,7 @@ void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp) {
   NBSNoteBlock *note;
   *keyDown = *keyUp = 0;
   for (int i = 0; i < t->noteCtr; i++) {
-    note = &t->notes[i];
+    vec_at(&t->notes, i, (void **)&note);
     if (note->instrument == 0
       && 39 <= note->key
       && note->key <= 63) {
@@ -90,11 +90,15 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
     , tps = options->highTps ? 1000 : 100;
   u32 time = -100
     , th;
-  i32 err;
+  i32 index = 0
+    , err;
   u16 keyDown, keyUp;
-  NBSTickEffective *tick = nbs->ticks;
+  size_t s;
+  NBSTickEffective *tick;
   SkyMusicTick_t mtr, mti;
 
+  vec_at(&nbs->ticks, 0, (void **)&tick);
+  vec_size(&nbs->ticks, &s);
   vec_init(v, sizeof(SkyMusicTick_t));
   th = (int)((float)tick->tick / tempo * tps);
   while (tick) {
@@ -124,9 +128,12 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
       return err;
 
     // Next NBS tick
-    tick = tick->next;
-    if (tick)
+    index++;
+    if (index < s) {
+      vec_at(&nbs->ticks, index, (void **)&tick);
       th = (int)((float)tick->tick / tempo * tps);
+    } else
+      tick = NULL;
   }
   // Successfully built
   return 0;

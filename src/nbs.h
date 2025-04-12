@@ -5,9 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "macros.h"
+#include "vector.h"
+
 typedef struct {
-  char *buffer;
+  const char *buffer;
   size_t cursor;
+  size_t size;
 } NBSReader;
 
 typedef struct {
@@ -36,8 +40,6 @@ typedef struct {
 } NBSHeader;
 
 typedef struct {
-  int tick;
-  int layer;
   char instrument;
   char key;
   char velocity;
@@ -45,22 +47,20 @@ typedef struct {
   short pitch;
 } NBSNoteBlock;
 
-typedef struct __NBSTickEffective {
+typedef struct {
   int tick;
   int ticksToNext;
   int noteCtr;
-  struct __NBSTickEffective *next;
-  struct __NBSTickEffective *prev;
-  NBSNoteBlock *notes;
+  Vector_t notes;
 } NBSTickEffective;
 
 typedef struct {
   NBSHeader header;
-  int effectiveTick;
-  NBSTickEffective *ticks;
+  int tickCtr;
+  Vector_t ticks;
 } NBS;
 
-size_t readNBSFile(const char *buffer, size_t cursor, NBS *nbs);
+i32 readNBSFile(const char *buffer, size_t fileSize, NBS *nbs);
 void freeNBSFile(NBS *nbs);
 
 #endif

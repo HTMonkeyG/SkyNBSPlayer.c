@@ -31,6 +31,8 @@ typedef struct {
 } SkyMusicTick_t;
 
 typedef struct {
+  /** Game average frame rate. */
+  i32 fps;
   /** Use 1000tps. */
   i8 highTps;
   /** Randomly shift every note along timeline. */
