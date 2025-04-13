@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <locale.h>
+#include <commdlg.h>
 
 #include "note.h"
 #include "nbs.h"

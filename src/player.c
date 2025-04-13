@@ -6,16 +6,26 @@
 static void sendTick(HWND hWnd, SkyMusicTick_t *tick) {
   for (int i = 0, j = 1; i < 15; i++, j <<= 1) {
     if (tick->keyDown & j)
-      SendMessageW(hWnd, WM_KEYDOWN, KEYCODES[i], KEYS[i] << 16);
+      SendMessageW(
+        hWnd,
+        WM_KEYDOWN,
+        KEYCODES[i],
+        KEYS[i] << 16
+      );
     if (tick->keyUp & j)
-      SendMessageW(hWnd, WM_KEYUP, KEYCODES[i], (KEYS[i] << 16) | 1 | (0B110 << 29));
+      SendMessageW(
+        hWnd,
+        WM_KEYUP,
+        KEYCODES[i],
+        (KEYS[i] << 16) | 1 | (0B110 << 29)
+      );
   }
 }
 
 /** 
  * Check what the player needs to do in the next real tick.
  */
-int checkCanPlay(HWND hSkyGameWnd) {
+static int checkCanPlay(HWND hSkyGameWnd) {
   CURSORINFO ci = { sizeof(CURSORINFO) };
   RECT screenRect = {
     0, 0,
@@ -27,14 +37,12 @@ int checkCanPlay(HWND hSkyGameWnd) {
 #endif
   
   if (!hSkyGameWnd || GetForegroundWindow() != hSkyGameWnd)
-    // The player isn't initialized or the game window is
-    // inactive.
+    // The player isn't initialized or the game window is inactive.
     // Need to pause playing.
     return 1;
 
   if (GetClipCursor(&cr) && !EqualRect(&cr, &screenRect))
-    // Mouse is captured, this only occurs when the game
-    // window is dragged.
+    // Mouse is captured, this only occurs when the game swindow is dragged.
     // Need to pause playing.
     return 1;
 
@@ -55,8 +63,8 @@ int checkCanPlay(HWND hSkyGameWnd) {
  * Real tick sends the KEYDOWN message, and inteval tick sends the KEYUP
  * message.
  * 
- * For every key, its key events be alternating between WM_KEYDOWN and WM_KEYUP,
- * and adjacent events must be separated by at least 10ms.
+ * For every key, its key events be alternating between WM_KEYDOWN and
+ * WM_KEYUP, and adjacent events must be separated by at least 10ms.
  * 
  * Therefore, the inteval tick sends the WM_KEYUP message, and it's intended to
  * keep the above limitations.
@@ -79,6 +87,7 @@ static void CALLBACK snTick(
     player->checkState = 1000 / player->inteval / 20;
     //printf("check - %d\n", player->tickCount);
     if (!ps) {
+      // Save state.
       player->savedTickCount = player->tickCount;
       player->savedTickIndex = player->tickIndex;
     }
@@ -100,7 +109,9 @@ static void CALLBACK snTick(
     timeKillEvent(player->timerId);
     player->timerId = 0;
     // Set state to STOPPED_*.
-    player->state = player->tickIndex >= player->maxIndex ? STOPPED_EOF : STOPPED_ESC;
+    player->state = player->tickIndex >= player->maxIndex
+      ? STOPPED_EOF
+      : STOPPED_ESC;
     return;
   } else if (ps == 1) {
     // Set state to PAUSED_*.

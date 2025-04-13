@@ -25,6 +25,20 @@ SkyAutoPlayOptions_t options = {
 wchar_t nbsPath[MAX_PATH] = {0}
   , cfgPath[MAX_PATH];
 
+i32 pickFile(const wchar_t *path, wchar_t *result, i32 maxLength) {
+  OPENFILENAMEW ofn = {0};
+  ofn.lStructSize = sizeof(ofn);
+  ofn.hwndOwner = NULL;
+  ofn.lpstrFile = result;
+  ofn.nMaxFile = maxLength;
+  ofn.lpstrFilter = L"All(*.*)\0*.*\0Note Block Studio(*.nbs)\0*.nbs\0Sky Studio(*.txt)\0*.txt\0\0";
+  ofn.nFilterIndex = 2;
+  ofn.lpstrFileTitle = NULL;
+  ofn.lpstrInitialDir = path;
+  ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
+  return GetOpenFileNameW(&ofn);
+}
+
 i32 readNBS(wchar_t *path, NBS *nbs) {
   FILE *file;
   size_t fileSize;
@@ -126,25 +140,32 @@ int main() {
 
   // Get config file path.
   if (!GetModuleFileNameW(NULL, cfgPath, MAX_PATH)) {
-    MBError(L"获取可执行文件目录失败", 0);
-    return 0;
+    LOG(L"Failed to get module path.");
+    goto ErrReadCfg;
   }
   p = wcsrchr(cfgPath, L'\\');
   if (!p) {
-    MBError(L"初始化配置文件目录失败", 0);
-    return 0;
+    LOG(L"Failed to initialize config file path.", 0);
+    goto ErrReadCfg;
   }
   *p = 0;
   wcscat(cfgPath, L"\\skynbs-config.txt");
+
+  // Read config file.
   FILE *f = _wfopen(cfgPath, L"r");
   if (!f) {
-    MBError(L"配置文件不存在", 0);
-    return 0;
+    LOG(L"Missing config file.");
+
+ErrReadCfg:
+    MBError(L"读取配置文件失败", 0);
+    return 1;
   }
+  *p = 0;
 
   // Read argv and config file.
   LOG(L"Reading config: %s...\n", cfgPath);
   buildConfigFrom(f, cfgCallback);
+  fclose(f);
   LOG(L"Reading argv...\n");
   buildArgFrom(argCallback);
 
@@ -159,9 +180,13 @@ int main() {
   LOG(L"Get game window handle: %d.\n", hSkyGameWnd);
 #endif
 
-  if (!wcslen(nbsPath)) {
-    MBError(L"未指定文件路径", 0);
-    wcscpy(nbsPath, L"./example.nbs");
+  // If no nbs file is specified, then try to browse file.
+  if (!wcslen(nbsPath) && !pickFile(cfgPath, nbsPath, MAX_PATH)) {
+    if (CommDlgExtendedError())
+      MBError(L"选择文件失败", 0);
+    else
+      LOG(L"User cancelled file selection.");
+    return 1;
   }
 
   LOG(L"Reading NBS file: %s\n", nbsPath);
