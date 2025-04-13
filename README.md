@@ -1,7 +1,7 @@
 # Sky NBS Player
 &emsp;为《光·遇》国服设计的自动演奏工具。该版本使用C语言开发。
 
-**正在开发中**
+**正在开发中，目前已实现基本功能**
 
 ## 项目特性
 - 支持播放使用Minecraft Note Block Studio编辑的`.nbs`曲谱。
