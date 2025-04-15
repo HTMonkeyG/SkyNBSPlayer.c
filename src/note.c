@@ -115,6 +115,10 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
     mti.keyDown = 0;
     mti.keyUp = keyUp;
 
+    // Won't do anything when no valid note.
+    if (!keyDown && !keyUp)
+      goto NextTick;
+
     // Build inteval tick
     // 20ms inteval
     mti.tick = mtr.tick + 2 * tps / 100;
@@ -127,6 +131,7 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
     if (err)
       return err;
 
+NextTick:
     // Next NBS tick
     index++;
     if (index < s) {

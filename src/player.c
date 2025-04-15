@@ -152,6 +152,7 @@ i32 snCreatePlayer(
   // Clamp target resolution.
   res = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
   // Initialize timer.
+  memset(player, 0, sizeof(SkyMusicPlayer_t));
   player->timerRes = res;
   player->inteval = options->highTps ? 1 : 10;
   player->builtTicks = builtTicks;

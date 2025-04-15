@@ -8,7 +8,7 @@
 #include <commdlg.h>
 
 #include "note.h"
-#include "nbs.h"
+#include "format/nbs.h"
 #include "random.h"
 #include "macros.h"
 #include "player.h"
@@ -20,10 +20,9 @@
 //#define DEBUG_NO_INSTANCE_DUPLICATE_CHECK
 #define DEBUG_CONSOLE
 
-#define MBError(text, type) (MessageBoxW(NULL, text, L"Error", MB_ICONERROR | type))
-
-#ifdef DEBUG_CONSOLE
-#define LOG (wprintf)
-#else
-#define LOG
-#endif
+typedef struct {
+  i8 runOnce;
+  i8 printHelp;
+  i8 printVersion;
+  SkyAutoPlayOptions_t playerOptions;
+} SkyNBSPlayerOptions_t;

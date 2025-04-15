@@ -5,13 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "macros.h"
-#include "vector.h"
+#include "../macros.h"
+#include "../vector.h"
 
 typedef struct {
   const char *buffer;
   size_t cursor;
   size_t size;
+  i32 error;
 } NBSReader;
 
 typedef struct {
@@ -60,7 +61,11 @@ typedef struct {
   Vector_t ticks;
 } NBS;
 
-i32 readNBSFile(const char *buffer, size_t fileSize, NBS *nbs);
+#define NBS_OUTOFBOUND  0x01
+#define NBS_ALLOCFAILED 0x02
+#define NBS_NULLPOINTER 0x03
+
+i32 readNBSFile(const char *buffer, size_t fileSize, NBS *nbs, i32 *err);
 void freeNBSFile(NBS *nbs);
 
 #endif

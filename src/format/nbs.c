@@ -1,81 +1,81 @@
 #include "nbs.h"
 
 /** Read 8-bit int in little endian. */
-static i08 readInt8(NBSReader *reader, i08 *err) {
+static i08 readInt8(NBSReader *reader) {
   size_t p = reader->cursor;
-  if (*err)
+  if (reader->error)
     // If previous function thrown an error,
     // then do nothing.
     return 0;
   if (p + 1 < reader->size) {
-    *err = 0;
+    reader->error = 0;
     reader->cursor++;
     return reader->buffer[p];
   }
   // If out of bound, then do nothing.
-  *err = 1;
+  reader->error = NBS_OUTOFBOUND;
   return 0;
 }
 
 /** Read 16-bit int in little endian. */
-static i16 readInt16LE(NBSReader *reader, i08 *err) {
+static i16 readInt16LE(NBSReader *reader) {
   size_t p = reader->cursor;
-  if (*err)
+  if (reader->error)
     return 0;
   if (p + 2 < reader->size) {
-    *err = 0;
+    reader->error = 0;
     reader->cursor += 2;
     return (u8)(reader->buffer[p])
       | (u8)(reader->buffer[p + 1]) << 8;
   }
-  *err = 1;
+  reader->error = NBS_OUTOFBOUND;
   return 0;
 }
 
 /** Read 32-bit int in little endian. */
-static i32 readInt32LE(NBSReader *reader, i08 *err) {
+static i32 readInt32LE(NBSReader *reader) {
   size_t p = reader->cursor;
-  if (*err)
+  if (reader->error)
     return 0;
   if (p + 4 < reader->size) {
-    *err = 0;
+    reader->error = 0;
     reader->cursor += 4;
     return (u8)(reader->buffer[p])
       | (u8)(reader->buffer[p + 1]) << 8
       | (u8)(reader->buffer[p + 2]) << 16
       | (u8)(reader->buffer[p + 3]) << 24;
   }
-  *err = 1;
+  reader->error = NBS_OUTOFBOUND;
   return 0;
 }
 
 /** Read a string with specified length. */
-static void readLengthedString(NBSReader *reader, char **string, i08 *err) {
+static void readLengthedString(NBSReader *reader, char **string) {
   i32 length;
 
-  if (*err) {
+  if (reader->error) {
     // If previous function throws an error, then do nothing.
     *string = NULL;
     return;
   }
 
   // Try to read the length of the string.
-  length = readInt32LE(reader, err);
-  if (*err) {
+  length = readInt32LE(reader);
+  if (reader->error) {
     *string = NULL;
     return;
   }
 
   if (reader->cursor + length >= reader->size) {
     // If out of bound, then do nothing.
-    *err = 1;
+    reader->error = NBS_OUTOFBOUND;
     *string = NULL;
     return;
   }
 
   *string = malloc(length + 1);
   if (!*string) {
-    *err = 1;
+    reader->error = NBS_ALLOCFAILED;
     return;
   }
 
@@ -85,52 +85,51 @@ static void readLengthedString(NBSReader *reader, char **string, i08 *err) {
 }
 
 /** Read NBS file header. */
-static void readHeader(NBSReader *reader, NBSHeader *header, i08 *err) {
-  header->songLengthOld = readInt16LE(reader, err);
-  header->version = readInt8(reader, err);
-  header->instCtr = readInt8(reader, err);
-  header->songLength = readInt16LE(reader, err);
-  header->layerCtr = readInt16LE(reader, err);
-  readLengthedString(reader, &header->name, err);
-  readLengthedString(reader, &header->author, err);
-  readLengthedString(reader, &header->originAuthor, err);
-  readLengthedString(reader, &header->desc, err);
-  header->tempo = readInt16LE(reader, err);
-  header->autoSave = readInt8(reader, err);
-  header->autoSaveDur = readInt8(reader, err);
-  header->timeSign = readInt8(reader, err);
-  header->minutes = readInt32LE(reader, err);
-  header->lc = readInt32LE(reader, err);
-  header->rc = readInt32LE(reader, err);
-  header->noteAdded = readInt32LE(reader, err);
-  header->noteRemoved = readInt32LE(reader, err);
-  readLengthedString(reader, &header->midiName, err);
-  header->loop = readInt8(reader, err);
-  header->maxLoopCtr = readInt8(reader, err);
-  header->loopStartTick = readInt16LE(reader, err);
+static void readHeader(NBSReader *reader, NBSHeader *header) {
+  header->songLengthOld = readInt16LE(reader);
+  header->version = readInt8(reader);
+  header->instCtr = readInt8(reader);
+  header->songLength = readInt16LE(reader);
+  header->layerCtr = readInt16LE(reader);
+  readLengthedString(reader, &header->name);
+  readLengthedString(reader, &header->author);
+  readLengthedString(reader, &header->originAuthor);
+  readLengthedString(reader, &header->desc);
+  header->tempo = readInt16LE(reader);
+  header->autoSave = readInt8(reader);
+  header->autoSaveDur = readInt8(reader);
+  header->timeSign = readInt8(reader);
+  header->minutes = readInt32LE(reader);
+  header->lc = readInt32LE(reader);
+  header->rc = readInt32LE(reader);
+  header->noteAdded = readInt32LE(reader);
+  header->noteRemoved = readInt32LE(reader);
+  readLengthedString(reader, &header->midiName);
+  header->loop = readInt8(reader);
+  header->maxLoopCtr = readInt8(reader);
+  header->loopStartTick = readInt16LE(reader);
 }
 
 /** Read a single note. */
-static void readNoteBlock(NBSReader *reader, NBSNoteBlock *note, i08 *err) {
-  note->instrument = readInt8(reader, err);
-  note->key = readInt8(reader, err);
-  note->velocity = readInt8(reader, err);
-  note->panning = readInt8(reader, err);
-  note->pitch = readInt16LE(reader, err);
+static void readNoteBlock(NBSReader *reader, NBSNoteBlock *note) {
+  note->instrument = readInt8(reader);
+  note->key = readInt8(reader);
+  note->velocity = readInt8(reader);
+  note->panning = readInt8(reader);
+  note->pitch = readInt16LE(reader);
 }
 
 /** Read an effective tick. */
 static void readEffectiveTick(
   NBSReader *reader,
   NBSTickEffective *tickData,
-  int *lastTick,
-  i08 *err
+  int *lastTick
 ) {
   NBSNoteBlock note;
   size_t noteCtr;
-  int tickJmp = readInt16LE(reader, err)
+  int tickJmp = readInt16LE(reader)
     , curTick, layerJmp;
-  if (!tickJmp || *err)
+  if (!tickJmp || reader->error)
     return;
   curTick = *lastTick + tickJmp;
   *lastTick = curTick;
@@ -139,13 +138,13 @@ static void readEffectiveTick(
   vec_init(&tickData->notes, sizeof(NBSNoteBlock));
   while (1) {
     // Get total note count.
-    layerJmp = readInt16LE(reader, err);
-    if (*err)
+    layerJmp = readInt16LE(reader);
+    if (reader->error)
       return;
     if (!layerJmp)
       break;
-    readNoteBlock(reader, &note, err);
-    if (*err)
+    readNoteBlock(reader, &note);
+    if (reader->error)
       return;
     vec_push(&tickData->notes, &note);
   }
@@ -155,26 +154,30 @@ static void readEffectiveTick(
 }
 
 /** Read NBS file without layer and custom instuments. */
-i32 readNBSFile(const char *buffer, size_t fileSize, NBS *nbs) {
+i32 readNBSFile(const char *buffer, size_t fileSize, NBS *nbs, i32 *err) {
   size_t p = 0;
   int tick = -1, effectiveTickCtr = 0;
-  i08 err = 0;
   NBSTickEffective tickData;
   NBSReader reader = {
     .buffer = buffer,
     .cursor = 0,
-    .size = fileSize
+    .size = fileSize,
+    .error = 0
   };
-  readHeader(&reader, &nbs->header, &err);
-  if (err)
+  if (!buffer || !nbs) {
+    *err = NBS_NULLPOINTER;
     return 0;
+  }
+  readHeader(&reader, &nbs->header);
+  if (reader.error)
+    goto ErrorRet;
   memset(&nbs->ticks, 0, sizeof(Vector_t));
   vec_init(&nbs->ticks, sizeof(NBSTickEffective));
   while (1) {
     p = reader.cursor;
-    readEffectiveTick(&reader, &tickData, &tick, &err);
-    if (err)
-      return 0;
+    readEffectiveTick(&reader, &tickData, &tick);
+    if (reader.error)
+      goto ErrorRet;
     if (reader.cursor - p == 2)
       break;
     vec_push(&nbs->ticks, &tickData);
@@ -182,6 +185,11 @@ i32 readNBSFile(const char *buffer, size_t fileSize, NBS *nbs) {
   }
   nbs->tickCtr = effectiveTickCtr;
   return 1;
+
+ErrorRet:
+  if (err)
+    *err = reader.error;
+  return 0;
 }
 
 /** Free an NBS struct. */

@@ -11,19 +11,26 @@
 #include "main.h"
 
 HWND hSkyGameWnd;
+HANDLE hMutex, hHotkeyThread;
+DWORD threadId;
 NBS nbs;
 Vector_t builtTicks = {0};
 f32 tempo;
 SkyMusicTick_t *currentTick = NULL;
-SkyAutoPlayOptions_t options = {
-  .highTps = 0,
-  .randomShift = 0,
-  .shiftStrength = 0,
-  .shiftType = 0,
-  .fps = 60
+SkyNBSPlayerOptions_t options = {
+  .printVersion = 0,
+  .printHelp = 0,
+  .runOnce = 0,
+  .playerOptions = {
+    .highTps = 0,
+    .randomShift = 0,
+    .shiftStrength = 0,
+    .shiftType = 0,
+    .fps = 60
+  }
 };
 wchar_t nbsPath[MAX_PATH] = {0}
-  , cfgPath[MAX_PATH];
+  , exePath[MAX_PATH];
 
 i32 pickFile(const wchar_t *path, wchar_t *result, i32 maxLength) {
   OPENFILENAMEW ofn = {0};
@@ -39,13 +46,21 @@ i32 pickFile(const wchar_t *path, wchar_t *result, i32 maxLength) {
   return GetOpenFileNameW(&ofn);
 }
 
-i32 readNBS(wchar_t *path, NBS *nbs) {
+i32 readAndBuildNBS(
+  wchar_t *path,
+  SkyNBSPlayerOptions_t *options,
+  Vector_t *builtTicks
+) {
   FILE *file;
+  NBS nbs;
   size_t fileSize;
-  i32 result;
+  i32 err = 0
+    , result;
 
-  if (!path || !nbs)
+  if (!path || !builtTicks || !options)
     return 0;
+
+  LOG(L"Reading NBS file: %s\n", nbsPath);
 
   file = _wfopen(path, L"rb");
   if (!file)
@@ -57,25 +72,39 @@ i32 readNBS(wchar_t *path, NBS *nbs) {
 
   i08 *buffer = malloc(fileSize);
   fread(buffer, 1, fileSize, file);
-  result = readNBSFile(buffer, fileSize, nbs);
+  result = readNBSFile(buffer, fileSize, &nbs, &err);
   free(buffer);
   fclose(file);
 
-  return result;
+  LOG(L"NBS reader stopped with state: %d\n", err);
+
+  if (!result) {
+    MBError(L"文件读取失败", 0);
+    return 0;
+  }
+  if (nbs.header.tempo < 0) {
+    MBError(L"无效NBS文件", 0);
+    return 0;
+  }
+  LOG(L"Tempo: %f\n", (f32)nbs.header.tempo / 100.);
+  buildTicksFrom(&options->playerOptions, &nbs, builtTicks);
+  freeNBSFile(&nbs);
+
+  return 1;
 }
 
 void cfgCallback(const wchar_t *key, const wchar_t *value) {
   wchar_t *p;
-  LOG(L"%s: %s\n", key, value);
+  LOG(L"- %s: %s\n", key, value);
 
   if (!wcscmp(key, L"high_tps"))
-    options.highTps = (wcstof(value, &p) != 0);
+    options.playerOptions.highTps = (wcstof(value, &p) != 0);
   else if (!wcscmp(key, L"frame_rate"))
-    options.fps = wcstoul(value, &p, 10);
+    options.playerOptions.fps = wcstoul(value, &p, 10);
 }
 
 void argCallback(const wchar_t *value, int count, int *state) {
-  LOG(L"%d %s\n", count, value);
+  LOG(L"- %d %s\n", count, value);
 
   if (!count && (!wcscmp(value, L"i") || !wcscmp(value, L"input")))
     // -i <file to read>
@@ -94,39 +123,35 @@ void argCallback(const wchar_t *value, int count, int *state) {
     *state = 0;
   }
 }
- /*
+
 DWORD WINAPI hotkeyThread(LPVOID lpParam) {
   MSG msg;
-
  
-  if (!RegisterHotKey(NULL, 1, hotkeyMod, hotkeyVK))
+  if (!RegisterHotKey(NULL, 1, MOD_CONTROL, 'A'))
     return 1;
-  SetEvent(hEvent);
 
   while (GetMessageW(&msg, NULL, 0, 0)) {
-    switch (msg.message) {
-      case WM_HOTKEY:
-        break;
-      case WM_TIMER:
-        break;
+    if (msg.message == WM_QUIT)
+      break;
+    if (msg.message == WM_HOTKEY) {
+      LOG(L"aaa\n");
     }
   }
 
-Exit:
   UnregisterHotKey(NULL, 1);
   return 0;
-}*/
+}
 
-int main() {
-  HANDLE hMutex;
-  SkyMusicPlayer_t player;
-  wchar_t *p;
-
-  setlocale(LC_ALL, "zh_CN.UTF-8");
+/** Initialize the software. */
+i32 initPlayer() {
+  wchar_t cfgPath[MAX_PATH]
+    , *p;
 
 #ifndef DEBUG_CONSOLE
   // Close console window.
-  FreeConsole();
+  HWND hWnd = GetConsoleWindow();
+  if (hWnd != NULL)
+    ShowWindow(hWnd, SW_HIDE);
 #endif
 
 #ifndef DEBUG_NO_INSTANCE_DUPLICATE_CHECK
@@ -134,21 +159,22 @@ int main() {
   hMutex = CreateMutexW(NULL, TRUE, L"__SKY_NBS__");
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
     MBError(L"已有实例正在运行", 0);
-    return 1;
+    return 0;
   }
 #endif
 
   // Get config file path.
-  if (!GetModuleFileNameW(NULL, cfgPath, MAX_PATH)) {
+  if (!GetModuleFileNameW(NULL, exePath, MAX_PATH)) {
     LOG(L"Failed to get module path.");
     goto ErrReadCfg;
   }
-  p = wcsrchr(cfgPath, L'\\');
+  p = wcsrchr(exePath, L'\\');
   if (!p) {
     LOG(L"Failed to initialize config file path.", 0);
     goto ErrReadCfg;
   }
   *p = 0;
+  wcscpy(cfgPath, exePath);
   wcscat(cfgPath, L"\\skynbs-config.txt");
 
   // Read config file.
@@ -158,9 +184,8 @@ int main() {
 
 ErrReadCfg:
     MBError(L"读取配置文件失败", 0);
-    return 1;
+    return 0;
   }
-  *p = 0;
 
   // Read argv and config file.
   LOG(L"Reading config: %s...\n", cfgPath);
@@ -169,19 +194,41 @@ ErrReadCfg:
   LOG(L"Reading argv...\n");
   buildArgFrom(argCallback);
 
-#ifndef DEBUG_NO_GAME_RUNNING_CHECK
   // Get game window handle.
   hSkyGameWnd = FindWindowW(NULL, L"光·遇");
+#ifndef DEBUG_NO_GAME_RUNNING_CHECK
   while (!hSkyGameWnd) {
     if (MBError(L"游戏未运行，是否重试？", MB_YESNO) == IDNO)
-      return 1;
+      return 0;
     hSkyGameWnd = FindWindowW(NULL, L"光·遇");
   }
-  LOG(L"Get game window handle: %d.\n", hSkyGameWnd);
 #endif
+  LOG(L"Get game window handle: %d.\n", hSkyGameWnd);
 
-  // If no nbs file is specified, then try to browse file.
-  if (!wcslen(nbsPath) && !pickFile(cfgPath, nbsPath, MAX_PATH)) {
+  // Create hotkey listener.
+  hHotkeyThread = CreateThread(NULL, 0, hotkeyThread, 0, 0, &threadId);
+  if (!hHotkeyThread) {
+    MBError(L"创建子线程失败", 0);
+    return 0;
+  }
+
+  return 1;
+}
+
+int main() {
+  SkyMusicPlayer_t player;
+
+  setlocale(LC_ALL, "zh_CN.UTF-8");
+
+  // Initialize.
+  if (!initPlayer())
+    return 1;
+
+  if (wcslen(nbsPath))
+    // If specified nbs file through command line, then only play this file.
+    options.runOnce = 1;
+  else if (!pickFile(exePath, nbsPath, MAX_PATH)) {
+    // Try to browse file if no nbs file is specified.
     if (CommDlgExtendedError())
       MBError(L"选择文件失败", 0);
     else
@@ -189,22 +236,12 @@ ErrReadCfg:
     return 1;
   }
 
-  LOG(L"Reading NBS file: %s\n", nbsPath);
-  if (!readNBS(nbsPath, &nbs)) {
-    MBError(L"文件读取失败", 0);
+  if (!readAndBuildNBS(nbsPath, &options, &builtTicks))
     return 1;
-  }
-  if (nbs.header.tempo < 0) {
-    MBError(L"无效NBS文件", 0);
-    return 1;
-  }
-  LOG(L"Tempo: %f\n", (f32)nbs.header.tempo / 100.);
-  buildTicksFrom(&options, &nbs, &builtTicks);
-  freeNBSFile(&nbs);
 
   SetForegroundWindow(hSkyGameWnd);
 
-  snCreatePlayer(&player, &options, hSkyGameWnd, &builtTicks);
+  snCreatePlayer(&player, &options.playerOptions, hSkyGameWnd, &builtTicks);
   Sleep(100);
   snMusicPlay(&player);
 

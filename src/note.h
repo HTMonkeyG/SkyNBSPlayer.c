@@ -1,7 +1,7 @@
 #ifndef _INC_SKY_NOTES_
 #define _INC_SKY_NOTES_
 
-#include "nbs.h"
+#include "format/nbs.h"
 #include "macros.h"
 #include "vector.h"
 
@@ -41,6 +41,8 @@ typedef struct {
   i8 shiftStrength;
   /** Distribution of the shift operation. */
   i8 shiftType;
+  /** Restrict all notes to 2-Octave limitaion of Sky. */
+  i8 allowClamp;
 } SkyAutoPlayOptions_t;
 
 static const u16 KEYS[15] = {

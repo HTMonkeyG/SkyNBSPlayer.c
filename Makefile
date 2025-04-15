@@ -1,22 +1,24 @@
-DIST_DIR = ./dist
-SRC_DIR = ./src
-RES_DIR = ./res
- 
-SRC = $(wildcard $(SRC_DIR)/*.c)
-OBJ = $(patsubst %.c, $(DIST_DIR)/%.o, $(notdir $(SRC))) $(DIST_DIR)/res.o
+CC = gcc
+CFLAGS = -Wall #-Os -ffunction-sections -fdata-sections -Wl,--gc-sections -static -flto -s
+LDFLAGS = -lwinmm -lcomdlg32
 
 TARGET = skycol-nbs.exe
 BIN_TARGET = $(DIST_DIR)/$(TARGET)
 
-CC = gcc
-PARAM = -Wall #-Os -ffunction-sections -fdata-sections -Wl,--gc-sections -static -flto -s
-LINK = -lwinmm -lcomdlg32
+DIST_DIR = ./dist
+RES_DIR = ./res
+
+SRC_DIRS = src $(wildcard src/*/)
+SRC_FILES = $(wildcard src/*.c src/*/*.c)
+OBJ = $(addprefix dist/, $(notdir $(SRC_FILES:.c=.o))) $(DIST_DIR)/res.o
+
+vpath %.c $(SRC_DIRS)
 
 $(BIN_TARGET): $(OBJ)
-	$(CC) $(PARAM) $(OBJ) -o $@ $(LINK)
+	$(CC) $(CFLAGS) $(OBJ) -o $@ $(LDFLAGS)
 
-$(DIST_DIR)/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/%.h
-	$(CC) $(PARAM) -c $< -o $@
+$(DIST_DIR)/%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(DIST_DIR)/res.o: $(RES_DIR)/manifest.xml $(RES_DIR)/res.rc
 	windres -i $(RES_DIR)/res.rc -o $(DIST_DIR)/res.o

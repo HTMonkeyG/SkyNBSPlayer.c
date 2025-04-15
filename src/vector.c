@@ -1,3 +1,5 @@
+/** Variable-length array implement. */
+
 #include "vector.h"
 
 Vector_t *vec_init(Vector_t *v, size_t sizePerElement) {
