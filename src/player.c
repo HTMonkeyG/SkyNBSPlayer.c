@@ -194,12 +194,14 @@ i32 snCreatePlayer(
 
 i32 snMusicPlay(SkyMusicPlayer_t *player) {
   if (!player || player->state == PLAYING)
+    // Null pointer or is playing.
     return 0;
   if (checkCanPlay(player->hGameWnd))
     // Do nothing when the condition isn't met.
     return 0;
-
-  lockPlayer(player);
+  if (!lockPlayer(player))
+    // Lock failed.
+    return 0;
 
   if (player->state > 0) {
     // Paused player, the timer isn't killed.
@@ -208,11 +210,12 @@ i32 snMusicPlay(SkyMusicPlayer_t *player) {
       // Only when the event is automatically processed by snTick.
       player->tickCount = player->savedTickCount;
       player->tickIndex = player->savedTickIndex;
-      vec_at(
+      if (!vec_at(
         player->builtTicks,
         player->tickIndex,
         (void **)&player->currentTick
-      );
+      ))
+        return 0;
     }
     // Set state.
     player->state = PLAYING;
@@ -221,13 +224,16 @@ i32 snMusicPlay(SkyMusicPlayer_t *player) {
     if (player->timerId)
       // Kill the timer may exists.
       timeKillEvent(player->timerId);
-    player->state = PLAYING;
 
     // Reinitialize player.
     player->tickCount = 0;
     player->tickIndex = 0;
     vec_size(player->builtTicks, &player->maxIndex);
-    vec_at(player->builtTicks, 0, (void **)&player->currentTick);
+    if (!vec_at(player->builtTicks, 0, (void **)&player->currentTick))
+      return 0;
+
+    // Restart timer.
+    player->state = PLAYING;
     player->timerId = timeSetEvent(
       player->inteval,
       player->timerRes,
@@ -252,17 +258,18 @@ i32 snMusicResume(SkyMusicPlayer_t *player) {
 
   if (player->timerId)
     timeKillEvent(player->timerId);
-  player->state = PLAYING;
+
   if (player->state == STOPPED_ESC) {
     // Restore saved data.
     // Only when the event is automatically processed by snTick.
     player->tickCount = player->savedTickCount;
     player->tickIndex = player->savedTickIndex;
-    vec_at(
+    if (!vec_at(
       player->builtTicks,
       player->tickIndex,
       (void **)&player->currentTick
-    );
+    ))
+      return 0;
   }
   player->timerId = timeSetEvent(
     player->inteval,
@@ -271,6 +278,7 @@ i32 snMusicResume(SkyMusicPlayer_t *player) {
     (DWORD_PTR)player,
     TIME_PERIODIC | TIME_CALLBACK_FUNCTION | TIME_KILL_SYNCHRONOUS 
   );
+  player->state = PLAYING;
 
   unlockPlayer(player);
 
@@ -297,6 +305,7 @@ i32 snMusicStop(SkyMusicPlayer_t *player) {
   // The timer callback will kill the timer automatically.
   player->state = STOPPED_PROG;
   if (player->timerId)
+    // Kill the timer.
     timeKillEvent(player->timerId);
   player->timerId = 0;
 
