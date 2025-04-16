@@ -21,6 +21,22 @@ SkyNBSPlayerOptions_t options = {
   .printVersion = 0,
   .printHelp = 0,
   .runOnce = 0,
+  .hkOpen = {
+    .mod = MOD_CONTROL,
+    .vk = 'O'
+  },
+  .hkPlay = {
+    .mod = MOD_ALT,
+    .vk = 'O'
+  },
+  .hkPause = {
+    .mod = MOD_ALT,
+    .vk = 'O'
+  },
+  .hkStop = {
+    .mod = MOD_ALT,
+    .vk = 'I'
+  },
   .playerOptions = {
     .highTps = 0,
     .randomShift = 0,
@@ -29,6 +45,7 @@ SkyNBSPlayerOptions_t options = {
     .fps = 60
   }
 };
+SkyMusicPlayer_t player = {0};
 wchar_t nbsPath[MAX_PATH] = {0}
   , exePath[MAX_PATH];
 
@@ -87,6 +104,7 @@ i32 readAndBuildNBS(
     return 0;
   }
   LOG(L"Tempo: %f\n", (f32)nbs.header.tempo / 100.);
+  LOG(L"Compiling notes...\n");
   buildTicksFrom(&options->playerOptions, &nbs, builtTicks);
   freeNBSFile(&nbs);
 
@@ -127,18 +145,56 @@ void argCallback(const wchar_t *value, int count, int *state) {
 DWORD WINAPI hotkeyThread(LPVOID lpParam) {
   MSG msg;
  
-  if (!RegisterHotKey(NULL, 1, MOD_CONTROL, 'A'))
+  if (!RegisterHotKey(NULL, 1, options.hkOpen.mod, options.hkOpen.vk)) {
+    MBError(L"注册打开文件快捷键失败", 0);
     return 1;
+  }
+  if (!RegisterHotKey(NULL, 2, options.hkPlay.mod, options.hkPlay.vk)) {
+    MBError(L"注册播放快捷键失败", 0);
+    return 1;
+  }
 
   while (GetMessageW(&msg, NULL, 0, 0)) {
     if (msg.message == WM_QUIT)
       break;
-    if (msg.message == WM_HOTKEY) {
-      LOG(L"aaa\n");
+    if (msg.message != WM_HOTKEY || GetForegroundWindow() != hSkyGameWnd)
+      continue;
+    if (msg.wParam == 1) {
+      // Open file.
+      snMusicStop(&player);
+      // Try to browse file.
+      if (!pickFile(exePath, nbsPath, MAX_PATH)) {
+        // Browse failed.
+        if (CommDlgExtendedError())
+          MBError(L"选择文件失败", 0);
+        else
+          LOG(L"User cancelled file selection.");
+        continue;
+      }
+      // Browse successed.
+      vec_init(&builtTicks, sizeof(SkyMusicTick_t));
+      snRemovePlayer(&player);
+      if (!readAndBuildNBS(nbsPath, &options, &builtTicks))
+        continue;
+      snCreatePlayer(&player, &options.playerOptions, hSkyGameWnd, &builtTicks);
+      SetForegroundWindow(hSkyGameWnd);
+    } else if (msg.wParam == 2) {
+      // Play current file.
+      if (player.state > 0) {
+        snMusicPlay(&player);
+        LOG(L"Play, %d.\n", player.state);
+      } else if (player.state == STOPPED_PROG || player.state == STOPPED_ESC) {
+        snMusicResume(&player);
+        LOG(L"Resume, %d.\n", player.state);
+      } else if (player.state == PLAYING) {
+        snMusicPause(&player);
+        LOG(L"Pause, %d.\n", player.state);
+      }
     }
   }
 
   UnregisterHotKey(NULL, 1);
+  UnregisterHotKey(NULL, 2);
   return 0;
 }
 
@@ -203,7 +259,8 @@ ErrReadCfg:
     hSkyGameWnd = FindWindowW(NULL, L"光·遇");
   }
 #endif
-  LOG(L"Get game window handle: %d.\n", hSkyGameWnd);
+  LOG(L"Get game window handle: 0x%X.\n", hSkyGameWnd);
+  SetForegroundWindow(hSkyGameWnd);
 
   // Create hotkey listener.
   hHotkeyThread = CreateThread(NULL, 0, hotkeyThread, 0, 0, &threadId);
@@ -216,8 +273,6 @@ ErrReadCfg:
 }
 
 int main() {
-  SkyMusicPlayer_t player;
-
   setlocale(LC_ALL, "zh_CN.UTF-8");
 
   // Initialize.
@@ -227,31 +282,6 @@ int main() {
   if (wcslen(nbsPath))
     // If specified nbs file through command line, then only play this file.
     options.runOnce = 1;
-  else if (!pickFile(exePath, nbsPath, MAX_PATH)) {
-    // Try to browse file if no nbs file is specified.
-    if (CommDlgExtendedError())
-      MBError(L"选择文件失败", 0);
-    else
-      LOG(L"User cancelled file selection.");
-    return 1;
-  }
-
-  if (!readAndBuildNBS(nbsPath, &options, &builtTicks))
-    return 1;
-
-  SetForegroundWindow(hSkyGameWnd);
-
-  snCreatePlayer(&player, &options.playerOptions, hSkyGameWnd, &builtTicks);
-  Sleep(100);
-  snMusicPlay(&player);
-
-  while (1) {
-    if (player.state < 0)
-      break;
-    if (player.state > 0)
-      snMusicPlay(&player);
-    Sleep(100);
-  }
 
   switch (player.state) {
     case STOPPED_EOF:

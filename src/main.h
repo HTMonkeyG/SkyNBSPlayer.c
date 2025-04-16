@@ -24,5 +24,9 @@ typedef struct {
   i8 runOnce;
   i8 printHelp;
   i8 printVersion;
+  Hotkey_t hkPlay;
+  Hotkey_t hkPause;
+  Hotkey_t hkStop;
+  Hotkey_t hkOpen;
   SkyAutoPlayOptions_t playerOptions;
 } SkyNBSPlayerOptions_t;

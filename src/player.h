@@ -25,6 +25,8 @@ typedef struct {
   /* Constant values */
   /** Current player state */
   SkyMusicPlayState_t state;
+  //CRITICAL_SECTION critical;
+  HANDLE mutex;
   u32 timerId;
   u32 timerRes;
   u32 inteval;
@@ -49,3 +51,4 @@ i32 snMusicPlay(SkyMusicPlayer_t *player);
 i32 snMusicResume(SkyMusicPlayer_t *player);
 i32 snMusicPause(SkyMusicPlayer_t *player);
 i32 snMusicStop(SkyMusicPlayer_t *player);
+i32 snRemovePlayer(SkyMusicPlayer_t *player);

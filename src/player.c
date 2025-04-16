@@ -55,6 +55,22 @@ static int checkCanPlay(HWND hSkyGameWnd) {
   return 0;
 }
 
+static i32 lockPlayer(SkyMusicPlayer_t *player) {
+  //EnterCriticalSection(&player->critical);
+  if (!player->mutex)
+    return 0;
+  WaitForSingleObject(player->mutex, INFINITE);
+  return 1;
+}
+
+static i32 unlockPlayer(SkyMusicPlayer_t *player) {
+  //LeaveCriticalSection(&player->critical);
+  if (!player->mutex)
+    return 0;
+  ReleaseMutex(player->mutex);
+  return 1;
+}
+
 /**
  * Tick function of the player.
  * 
@@ -80,6 +96,9 @@ static void CALLBACK snTick(
   SkyMusicTick_t *lastTick;
   int ps = 0;
 
+  if (!lockPlayer(player))
+    goto Exit;
+
   if (player->checkState <= 0) {
     // Check state every 50ms.
     ps = checkCanPlay(player->hGameWnd);
@@ -96,13 +115,13 @@ static void CALLBACK snTick(
 
   if (player->state != PLAYING)
     // Do nothing when isn't playing.
-    return;
+    goto Exit;
   if (player->state == STOPPED_PROG) {
     // Stopped by program, but timer isn't killed.
     if (player->timerId)
       timeKillEvent(player->timerId);
     player->timerId = 0;
-    return;
+    goto Exit;
   } if (ps == 2 || player->tickIndex >= player->maxIndex) {
     // Exit keyboard or EOF.
     // Need to kill timer and stop.
@@ -112,18 +131,18 @@ static void CALLBACK snTick(
     player->state = player->tickIndex >= player->maxIndex
       ? STOPPED_EOF
       : STOPPED_ESC;
-    return;
+    goto Exit;
   } else if (ps == 1) {
     // Set state to PAUSED_*.
     player->state = PAUSED_BG;
-    return;
+    goto Exit;
   }
 
   // Next tick.
   player->tickCount++;
   if (player->tickCount < 0)
     // Pre-play state, do nothing.
-    return;
+    goto Exit;
   if (((i32)player->currentTick->tick) <= player->tickCount) {
     // Encountered a tick.
     lastTick = player->currentTick;
@@ -134,6 +153,9 @@ static void CALLBACK snTick(
     // Send events to game window.
     sendTick(player->hGameWnd, lastTick);
   }
+
+Exit:
+  unlockPlayer(player);
 }
 
 i32 snCreatePlayer(
@@ -153,6 +175,9 @@ i32 snCreatePlayer(
   res = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
   // Initialize timer.
   memset(player, 0, sizeof(SkyMusicPlayer_t));
+  player->mutex = CreateMutexA(NULL, 0, NULL);
+  if (!player->mutex)
+    return 0;
   player->timerRes = res;
   player->inteval = options->highTps ? 1 : 10;
   player->builtTicks = builtTicks;
@@ -163,6 +188,7 @@ i32 snCreatePlayer(
   vec_size(builtTicks, &player->maxIndex);
   vec_at(builtTicks, 0, (void **)&player->currentTick);
   player->timerId = 0;
+  //InitializeCriticalSection(&player->critical);
   return 1;
 }
 
@@ -172,6 +198,8 @@ i32 snMusicPlay(SkyMusicPlayer_t *player) {
   if (checkCanPlay(player->hGameWnd))
     // Do nothing when the condition isn't met.
     return 0;
+
+  lockPlayer(player);
 
   if (player->state > 0) {
     // Paused player, the timer isn't killed.
@@ -209,6 +237,8 @@ i32 snMusicPlay(SkyMusicPlayer_t *player) {
     );
   }
 
+  unlockPlayer(player);
+
   return 1;
 }
 
@@ -217,6 +247,8 @@ i32 snMusicResume(SkyMusicPlayer_t *player) {
     return 0;
   if (checkCanPlay(player->hGameWnd))
     return 0;
+
+  lockPlayer(player);
 
   if (player->timerId)
     timeKillEvent(player->timerId);
@@ -240,23 +272,45 @@ i32 snMusicResume(SkyMusicPlayer_t *player) {
     TIME_PERIODIC | TIME_CALLBACK_FUNCTION | TIME_KILL_SYNCHRONOUS 
   );
 
+  unlockPlayer(player);
+
   return 1;
 }
 
 i32 snMusicPause(SkyMusicPlayer_t *player) {
-  if (!player || player->state != PLAYING)
+  if (!player || player->state != PLAYING || !player->hGameWnd)
     return 0;
+
+  lockPlayer(player);
   player->state = PAUSED_PROG;
+  unlockPlayer(player);
+
   return 1;
 }
 
 i32 snMusicStop(SkyMusicPlayer_t *player) {
-  if (!player || player->state != PLAYING)
+  if (!player || player->state < 0 || !player->hGameWnd)
     return 0;
+
+  lockPlayer(player);
+  
   // The timer callback will kill the timer automatically.
   player->state = STOPPED_PROG;
   if (player->timerId)
     timeKillEvent(player->timerId);
   player->timerId = 0;
+
+  unlockPlayer(player);
+
+  return 1;
+}
+
+i32 snRemovePlayer(SkyMusicPlayer_t *player) {
+  if (!player)
+    return 0;
+  snMusicStop(player);
+  //DeleteCriticalSection(&player->critical);
+  CloseHandle(player->mutex);
+  memset(player, 0, sizeof(SkyMusicPlayer_t));
   return 1;
 }
