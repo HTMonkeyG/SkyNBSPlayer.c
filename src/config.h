@@ -10,4 +10,4 @@ typedef struct {
 typedef void (ConfigCallback_t)(const wchar_t *key, const wchar_t *value);
 
 int buildConfigFrom(FILE *file, ConfigCallback_t callback);
-//int buildHotkeyFrom(const wchar_t *desc, Hotkey_t *hotkey);
+int buildHotkeyFrom(const wchar_t *desc, Hotkey_t *hotkey);

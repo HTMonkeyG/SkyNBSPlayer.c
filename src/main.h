@@ -9,6 +9,7 @@
 
 #include "note.h"
 #include "format/nbs.h"
+#include "format/abc.h"
 #include "random.h"
 #include "macros.h"
 #include "player.h"

@@ -21,7 +21,36 @@
    - ~~对于Sky Studio曲谱，仅非加密曲谱可正常识别。~~
 
 ## 配置文件
-**该功能开发中。**
+&emsp;示例配置文件如下：
+```
+# 示例配置
+
+# 游戏的平均帧率，由设置决定
+# 该字段用于决定tick最小间隔
+frame_rate: 60
+
+# 高TPS模式
+# 如果该字段非0则使用1000Hz主计时器
+# 为0则使用100Hz
+high_tps: 1
+
+# 状态显示
+# 通过浮窗显示当前播放状态
+state_display: 1
+
+# 播放快捷键
+hotkey_play: Alt+O
+
+# 暂停快捷键
+# 留空则与播放快捷键相同
+hotkey_pause:
+
+# 停止快捷键
+hotkey_stop: Alt+I
+
+# 打开文件快捷键
+hotkey_open: Ctrl+O
+```
 
 ## 编译方式
 &emsp;本项目使用MinGW32-x64编译，编译目标为x64架构的Windows 10桌面应用。

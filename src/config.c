@@ -41,3 +41,47 @@ int buildConfigFrom(FILE *file, ConfigCallback_t callback) {
 
   return counter;
 }
+
+int buildHotkeyFrom(const wchar_t *desc, Hotkey_t *hotkey) {
+  wchar_t buffer[128]
+    , nums[32]
+    , *p;
+  size_t l, m, n;
+  unsigned int mod = 0
+    , vk = 0;
+
+  if (!desc || !hotkey)
+    return 0;
+
+  wcsncpy(buffer, desc, 127);
+  buffer[127] = 0;
+  l = wcslen(desc);
+
+  if (!l)
+    return 0;
+
+  for (m = 0; m < l;) {
+    while (buffer[m] == L' ' || buffer[m] == L'+')
+      m++;
+    if (!wcsnicmp(buffer + m, L"alt", 3)) {
+      mod |= MOD_ALT;
+      m += 3;
+    } else if (!wcsnicmp(buffer + m, L"ctrl", 4)) {
+      mod |= MOD_CONTROL;
+      m += 4;
+    } else if (!wcsnicmp(buffer + m, L"shift", 5)) {
+      mod |= MOD_SHIFT;
+      m += 5;
+    } else if (buffer[m] >= L'0' && buffer[m] <= L'9') {
+      n = m;
+      do
+        n++;
+      while (buffer[n] >= L'0' && buffer[n] <= L'9' && n - m < 31);
+      memcpy(nums, buffer + m, (n - m) * sizeof(wchar_t));
+      nums[31] = 0;
+      vk = wcstoul(nums, &p, 10);
+      break;
+    } else
+      return 0;
+  }
+}

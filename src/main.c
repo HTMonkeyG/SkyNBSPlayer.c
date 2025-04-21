@@ -79,7 +79,7 @@ i32 readAndBuildNBS(
 
   LOG(L"Reading NBS file: %s\n", nbsPath);
 
-  file = _wfopen(path, L"rb");
+  file = _wfopen(path, L"r");
   if (!file)
     return 0;
 
@@ -89,6 +89,10 @@ i32 readAndBuildNBS(
 
   i08 *buffer = malloc(fileSize);
   fread(buffer, 1, fileSize, file);
+  /*SkyStudioABC abc;
+  readJsonABC(buffer, &abc);
+  printf("%s\n", abc.name);
+  return 0;*/
   result = readNBSFile(buffer, fileSize, &nbs, &err);
   free(buffer);
   fclose(file);
