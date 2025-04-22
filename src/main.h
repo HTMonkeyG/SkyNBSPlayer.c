@@ -8,6 +8,7 @@
 #include <commdlg.h>
 
 #include "note.h"
+#include "format/format.h"
 #include "format/nbs.h"
 #include "format/abc.h"
 #include "random.h"

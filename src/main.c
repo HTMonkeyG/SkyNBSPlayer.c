@@ -69,15 +69,14 @@ i32 readAndBuildNBS(
   Vector_t *builtTicks
 ) {
   FILE *file;
-  NBS nbs;
+  GeneralSongTicks_t song;
   size_t fileSize;
-  i32 err = 0
-    , result;
+  i32 result;
 
   if (!path || !builtTicks || !options)
     return 0;
 
-  LOG(L"Reading NBS file: %s\n", nbsPath);
+  LOG(L"Reading song file: %s\n", nbsPath);
 
   file = _wfopen(path, L"r");
   if (!file)
@@ -89,28 +88,24 @@ i32 readAndBuildNBS(
 
   i08 *buffer = malloc(fileSize);
   fread(buffer, 1, fileSize, file);
-  /*SkyStudioABC abc;
-  readJsonABC(buffer, &abc);
-  printf("%s\n", abc.name);
-  return 0;*/
-  result = readNBSFile(buffer, fileSize, &nbs, &err);
+  //result = readNBSFile(buffer, fileSize, &nbs, &err);
+  result = readSongFile(buffer, fileSize, &song);
   free(buffer);
   fclose(file);
 
-  LOG(L"NBS reader stopped with state: %d\n", err);
+  //LOG(L"NBS reader stopped with state: %d\n", err);
 
   if (!result) {
     MBError(L"文件读取失败", 0);
     return 0;
   }
   if (nbs.header.tempo < 0) {
-    MBError(L"无效NBS文件", 0);
+    MBError(L"无效音乐文件", 0);
     return 0;
   }
-  LOG(L"Tempo: %f\n", (f32)nbs.header.tempo / 100.);
+  LOG(L"Tempo: %f\n", song.tps);
   LOG(L"Compiling notes...\n");
-  buildTicksFrom(&options->playerOptions, &nbs, builtTicks);
-  freeNBSFile(&nbs);
+  buildTicksFrom(&options->playerOptions, &song, builtTicks);
 
   return 1;
 }

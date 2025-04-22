@@ -1,3 +1,6 @@
+#ifndef __ABC_H__
+#define __ABC_H__
+
 #include <stdio.h>
 #include <string.h>
 
@@ -9,7 +12,7 @@ typedef struct {
   /** In milliseconds. */
   u32 time;
   u16 note1;
-  u16 note2
+  u16 note2;
 } ABCTick_t;
 
 typedef struct {
@@ -24,3 +27,6 @@ typedef struct {
 } SkyStudioABC;
 
 i32 readJsonABC(const char *input, SkyStudioABC *abc);
+void freeABC(SkyStudioABC *abc);
+
+#endif

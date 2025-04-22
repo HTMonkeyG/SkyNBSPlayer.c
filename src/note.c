@@ -1,21 +1,5 @@
 #include "note.h"
 
-void buildKeysFrom(NBSTickEffective *t, u16 *keyDown, u16 *keyUp) {
-  NBSNoteBlock *note;
-  *keyDown = *keyUp = 0;
-  for (int i = 0; i < t->noteCtr; i++) {
-    vec_at(&t->notes, i, (void **)&note);
-    if (note->instrument == 0
-      && 39 <= note->key
-      && note->key <= 63) {
-      if (CVT[note->key - 39] != INVALID) {
-        *keyDown |= CVT[note->key - 39];
-        *keyUp |= CVT[note->key - 39];
-      }
-    }
-  }
-}
-
 int mergeTickTo(Vector_t *v, SkyMusicTick_t *mtr, i16 minInteval) {
   i64 i = -1;
   u64 size;
@@ -85,20 +69,23 @@ int mergeTickTo(Vector_t *v, SkyMusicTick_t *mtr, i16 minInteval) {
 }
 
 /** Convert NBS to key event ticks. */
-int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
-  f32 tempo = (f32)nbs->header.tempo / 100.
+int buildTicksFrom(
+  SkyAutoPlayOptions_t *options,
+  GeneralSongTicks_t *file,
+  Vector_t *v
+) {
+  f32 tempo = file->tps
     , tps = options->highTps ? 1000 : 100;
   u32 time = -100
     , th;
   i32 index = 0
     , err;
-  u16 keyDown, keyUp;
   size_t s;
-  NBSTickEffective *tick;
-  SkyMusicTick_t mtr, mti;
+  SkyMusicTick_t *tick
+    , mtr, mti;
 
-  vec_at(&nbs->ticks, 0, (void **)&tick);
-  vec_size(&nbs->ticks, &s);
+  vec_at(&file->ticks, 0, (void **)&tick);
+  vec_size(&file->ticks, &s);
   vec_init(v, sizeof(SkyMusicTick_t));
   th = (int)((float)tick->tick / tempo * tps);
   while (tick) {
@@ -108,15 +95,14 @@ int buildTicksFrom(SkyAutoPlayOptions_t *options, NBS *nbs, Vector_t *v) {
       continue;
 
     // Build real tick
-    buildKeysFrom(tick, &keyDown, &keyUp);
     mtr.tick = th;
-    mtr.keyDown = keyDown;
+    mtr.keyDown = tick->keyDown;
     mtr.keyUp = 0;
     mti.keyDown = 0;
-    mti.keyUp = keyUp;
+    mti.keyUp = tick->keyUp;
 
     // Won't do anything when no valid note.
-    if (!keyDown && !keyUp)
+    if (!tick->keyDown && !tick->keyUp)
       goto NextTick;
 
     // Build inteval tick
@@ -135,7 +121,7 @@ NextTick:
     // Next NBS tick
     index++;
     if (index < s) {
-      vec_at(&nbs->ticks, index, (void **)&tick);
+      vec_at(&file->ticks, index, (void **)&tick);
       th = (int)((float)tick->tick / tempo * tps);
     } else
       tick = NULL;

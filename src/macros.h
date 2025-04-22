@@ -1,5 +1,5 @@
-#ifndef __SKY_MACROS__
-#define __SKY_MACROS__
+#ifndef __MACROS_H__
+#define __MACROS_H__
 
 #define i8 char
 #define i08 char

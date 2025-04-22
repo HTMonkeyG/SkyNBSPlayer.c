@@ -31,8 +31,7 @@ static i32 readJsonNote(const char *str, ABCTick_t *result) {
   char buffer[16] = {0}
     , *p
     , l;
-  i32 type = 0
-    , note = 0;
+  i32 type, note, mask;
   
   if (!str || !result)
     return 0;
@@ -45,10 +44,18 @@ static i32 readJsonNote(const char *str, ABCTick_t *result) {
       memset(buffer + i, 0, 3);
       type = strtol(buffer, &p, 10);
       note = strtol(buffer + i + 3, &p, 10);
+      mask = 1 << note;
+      if (type == 1)
+        result->note1 = mask;
+      else if (type == 2)
+        result->note2 = mask;
+      else
+        return 0;
+      return 1;
     }
   }
 
-  printf("%d %d\n", type, note);
+  return 0;
 }
 
 static i32 readJsonABCHeader(const cJSON *const content, SkyStudioABC *abc) {
@@ -72,25 +79,48 @@ static i32 readJsonABCHeader(const cJSON *const content, SkyStudioABC *abc) {
   return 1;
 }
 
-i32 readABC(const wchar_t *input) {
-  
+static void mergeTickInto(Vector_t *ticks, ABCTick_t *data) {
+  size_t length;
+  ABCTick_t *last;
+
+  vec_size(ticks, &length);
+  if (!length)
+    vec_push(ticks, data);
+  else {
+    vec_at(ticks, -1, (void **)&last);
+    if (last->time == data->time) {
+      last->note1 |= data->note1;
+      last->note2 |= data->note2;
+    } else if (last->time < data->time)
+      vec_push(ticks, data);
+    else
+      // Insertion sort.
+      for (i64 i = 0; i < length; i++) {
+        vec_at(ticks, i, (void **)&last);
+        if (last->time > data->time) {
+          vec_splice(ticks, i + 1, 0, data, 1);
+          break;
+        }
+      }
+  }
 }
 
 i32 readJsonABC(const char *input, SkyStudioABC *abc) {
-  i32 result = 1;
   cJSON *json
     , *content
     , *notes
     , *note
     , *key;
-  size_t length;
   double time;
+  ABCTick_t data;
+  Vector_t *tickVec;
 
   if (!input || !abc)
     return 0;
 
   json = cJSON_Parse(input);
   memset(abc, 0, sizeof(SkyStudioABC));
+  tickVec = &abc->ticks;
 
   // ABC json file must start with an 1 element array.
   if (cJSON_GetArraySize(json) < 1)
@@ -108,13 +138,14 @@ i32 readJsonABC(const char *input, SkyStudioABC *abc) {
   if (!cJSON_IsArray(notes))
     goto ErrExit;
 
-  vec_init(&abc->ticks, sizeof(ABCTick_t));
+  vec_init(tickVec, sizeof(ABCTick_t));
 
   cJSON_ArrayForEach(note, notes) {
-    // Insertion sort.
     readJsonNumber(note, "time", &time);
     key = cJSON_GetObjectItemCaseSensitive(note, "key");
-    readJsonNote(cJSON_GetStringValue(key), 1);
+    readJsonNote(cJSON_GetStringValue(key), &data);
+    data.time = (int)time;
+    mergeTickInto(tickVec, &data);
   }
 
   cJSON_Delete(json);
@@ -125,6 +156,15 @@ ErrExit:
   return 0;
 }
 
-void freeABC(SkyStudioABC *abc) {
+i32 readABC(const wchar_t *input) {
+  
+}
 
+void freeABC(SkyStudioABC *abc) {
+  if (!abc)
+    return;
+  free(abc->author);
+  free(abc->oriAuthor);
+  free(abc->name);
+  vec_free(&abc->ticks);
 }

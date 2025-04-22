@@ -1,5 +1,5 @@
-#ifndef _INC_NBS_
-#define _INC_NBS_
+#ifndef __NBS_H__
+#define __NBS_H__
 
 #include <stdio.h>
 #include <stdlib.h>
