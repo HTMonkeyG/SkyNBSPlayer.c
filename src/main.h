@@ -23,7 +23,7 @@
 #define DEBUG_CONSOLE
 
 typedef struct {
-  i8 runOnce;
+  i8 exitWhenDone;
   i8 printHelp;
   i8 printVersion;
   Hotkey_t hkPlay;

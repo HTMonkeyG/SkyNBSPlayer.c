@@ -13,14 +13,13 @@
 HWND hSkyGameWnd;
 HANDLE hMutex, hHotkeyThread;
 DWORD threadId;
-NBS nbs;
 Vector_t builtTicks = {0};
 f32 tempo;
 SkyMusicTick_t *currentTick = NULL;
 SkyNBSPlayerOptions_t options = {
   .printVersion = 0,
   .printHelp = 0,
-  .runOnce = 0,
+  .exitWhenDone = 0,
   .hkOpen = {
     .mod = MOD_CONTROL,
     .vk = 'O'
@@ -69,16 +68,19 @@ i32 readAndBuildNBS(
   Vector_t *builtTicks
 ) {
   FILE *file;
-  GeneralSongTicks_t song;
-  size_t fileSize;
+  GeneralSongTicks_t song = {0};
+  size_t fileSize, stringLength;
+  wchar_t *wbuffer;
+  i08 bom[2]
+    , *buffer;
   i32 result;
 
   if (!path || !builtTicks || !options)
     return 0;
 
-  LOG(L"Reading song file: %s\n", nbsPath);
+  LOG(L"Reading song file: %s\n", path);
 
-  file = _wfopen(path, L"r");
+  file = _wfopen(path, L"rb");
   if (!file)
     return 0;
 
@@ -86,20 +88,60 @@ i32 readAndBuildNBS(
   fileSize = ftell(file);
   rewind(file);
 
-  i08 *buffer = malloc(fileSize);
-  fread(buffer, 1, fileSize, file);
-  //result = readNBSFile(buffer, fileSize, &nbs, &err);
+  // Get file encoding with bom.
+  // Default encoding of Sky Studio is UTF16-LE, but we also need to support
+  // UTF-8.
+  if (fread(bom, 2, 1, file) != 1) {
+    fclose(file);
+    goto ErrRet;
+  }
+  fseek(file, 0, SEEK_SET);
+
+  // I don't know why, but if I set bom as an u16 and directly pass &bom to
+  // fread(), then the next if statement won't be compiled correctly, even with
+  // "volatile u16 bom". So I set it as an byte array and use pointer reinter-
+  // -pret cast to convert it.
+  if (*(u16 *)&bom == 0xFEFF) {
+    // Convert encoding.
+    file = _wfreopen(path, L"r, ccs=UTF-8", file);
+    wbuffer = malloc(fileSize + 2);
+    fread(wbuffer, 1, fileSize, file);
+    stringLength = WideCharToMultiByte(
+      CP_ACP,
+      WC_NO_BEST_FIT_CHARS,
+      wbuffer,
+      -1,
+      NULL,
+      0,
+      NULL, 
+      NULL
+    );
+    buffer = malloc(stringLength + 1);
+    WideCharToMultiByte(
+      CP_ACP,
+      WC_NO_BEST_FIT_CHARS,
+      wbuffer,
+      -1,
+      buffer,
+      stringLength,
+      NULL,
+      NULL
+    );
+    free(wbuffer);
+  } else {
+    buffer = malloc(fileSize);
+    fread(buffer, 1, fileSize, file);
+  }
   result = readSongFile(buffer, fileSize, &song);
   free(buffer);
   fclose(file);
 
-  //LOG(L"NBS reader stopped with state: %d\n", err);
-
   if (!result) {
+ErrRet:
     MBError(L"文件读取失败", 0);
     return 0;
   }
-  if (nbs.header.tempo < 0) {
+  if (song.tps < 0) {
     MBError(L"无效音乐文件", 0);
     return 0;
   }
@@ -280,7 +322,7 @@ int main() {
 
   if (wcslen(nbsPath))
     // If specified nbs file through command line, then only play this file.
-    options.runOnce = 1;
+    options.exitWhenDone = 1;
 
   switch (player.state) {
     case STOPPED_EOF:
