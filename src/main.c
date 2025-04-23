@@ -48,6 +48,22 @@ SkyMusicPlayer_t player = {0};
 wchar_t nbsPath[MAX_PATH] = {0}
   , exePath[MAX_PATH];
 
+i32 getGameWnd() {
+  // Get game window handle.
+  hSkyGameWnd = FindWindowW(NULL, L"光·遇");
+  while (!hSkyGameWnd) {
+    if (MBError(L"游戏未运行，是否重试？", MB_YESNO) == IDNO)
+      return 0;
+    hSkyGameWnd = FindWindowW(NULL, L"光·遇");
+  }
+  LOG(L"Get game window handle: 0x%X.\n", hSkyGameWnd);
+  SetForegroundWindow(hSkyGameWnd);
+  return 1;
+}
+
+/**
+ * Open dialog box to browse file.
+ */
 i32 pickFile(const wchar_t *path, wchar_t *result, i32 maxLength) {
   OPENFILENAMEW ofn = {0};
   ofn.lStructSize = sizeof(ofn);
@@ -62,14 +78,17 @@ i32 pickFile(const wchar_t *path, wchar_t *result, i32 maxLength) {
   return GetOpenFileNameW(&ofn);
 }
 
-i32 readAndBuildNBS(
+/**
+ * Read file with given path and options, and preprocess it into song ticks.
+ */
+i32 readAndBuildSong(
   wchar_t *path,
   SkyNBSPlayerOptions_t *options,
   Vector_t *builtTicks
 ) {
   FILE *file;
   GeneralSongTicks_t song = {0};
-  size_t fileSize, stringLength;
+  size_t fileSize, stringLength, tickCount;
   wchar_t *wbuffer;
   i08 bom[2]
     , *buffer;
@@ -148,8 +167,25 @@ ErrRet:
   LOG(L"Tempo: %f\n", song.tps);
   LOG(L"Compiling notes...\n");
   buildTicksFrom(&options->playerOptions, &song, builtTicks);
+  vec_size(builtTicks, &tickCount);
+  LOG(L"Compiled %llu ticks.\n", tickCount);
 
   return 1;
+}
+
+i32 reinitPlayer() {
+  // Browse successed.
+  vec_init(&builtTicks, sizeof(SkyMusicTick_t));
+  snRemovePlayer(&player);
+  if (!readAndBuildSong(nbsPath, &options, &builtTicks))
+    return 0;
+  SetForegroundWindow(hSkyGameWnd);
+  return snCreatePlayer(
+    &player,
+    &options.playerOptions,
+    hSkyGameWnd,
+    &builtTicks
+  );
 }
 
 void cfgCallback(const wchar_t *key, const wchar_t *value) {
@@ -178,6 +214,7 @@ void argCallback(const wchar_t *value, int count, int *state) {
   if (*state == AS_INITIAL && count == 2) {
     // skycol-nbs.exe <file to read>
     LOG(L"Input file: %s\n", value);
+    options.exitWhenDone = 1;
     wcscpy_s(nbsPath, MAX_PATH, value);
     *state = 0;
   }
@@ -196,13 +233,19 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
   }
 
   while (GetMessageW(&msg, NULL, 0, 0)) {
-    if (msg.message == WM_QUIT)
+    if (msg.message == WM_USER_EXIT)
+      // Terminate thread.
+      PostQuitMessage(0);
+    else if (msg.message == WM_QUIT)
+      // Exit message loop.
       break;
-    if (msg.message != WM_HOTKEY || GetForegroundWindow() != hSkyGameWnd)
+    else if (msg.message != WM_HOTKEY || GetForegroundWindow() != hSkyGameWnd)
+      // Ignore other messages.
       continue;
-    if (msg.wParam == 1) {
-      // Open file.
+    else if (msg.message == WM_HOTKEY && msg.wParam == 1) {
+      // Open a new file.
       snMusicStop(&player);
+      options.exitWhenDone = 0;
       // Try to browse file.
       if (!pickFile(exePath, nbsPath, MAX_PATH)) {
         // Browse failed.
@@ -212,19 +255,17 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
           LOG(L"User cancelled file selection.");
         continue;
       }
-      // Browse successed.
-      vec_init(&builtTicks, sizeof(SkyMusicTick_t));
-      snRemovePlayer(&player);
-      if (!readAndBuildNBS(nbsPath, &options, &builtTicks))
+      if (!reinitPlayer())
         continue;
-      snCreatePlayer(&player, &options.playerOptions, hSkyGameWnd, &builtTicks);
-      SetForegroundWindow(hSkyGameWnd);
-    } else if (msg.wParam == 2) {
+    } else if (msg.message == WM_HOTKEY && msg.wParam == 2) {
       // Play current file.
       if (player.state > 0) {
         snMusicPlay(&player);
         LOG(L"Play, %d.\n", player.state);
-      } else if (player.state == STOPPED_PROG || player.state == STOPPED_ESC) {
+      } else if (
+        player.state == STOPPED_PROG
+        || player.state == STOPPED_ESC
+      ) {
         snMusicResume(&player);
         LOG(L"Resume, %d.\n", player.state);
       } else if (player.state == PLAYING) {
@@ -234,21 +275,22 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
     }
   }
 
+  snRemovePlayer(&player);
   UnregisterHotKey(NULL, 1);
   UnregisterHotKey(NULL, 2);
   return 0;
 }
 
 /** Initialize the software. */
-i32 initPlayer() {
+i32 initSoftware() {
   wchar_t cfgPath[MAX_PATH]
     , *p;
 
 #ifndef DEBUG_CONSOLE
   // Close console window.
-  HWND hWnd = GetConsoleWindow();
-  if (hWnd != NULL)
-    ShowWindow(hWnd, SW_HIDE);
+  FreeConsole();
+  freopen("skynbs-log.txt", "w", stdout);
+  _setmode(_fileno(stdout), _O_U8TEXT);
 #endif
 
 #ifndef DEBUG_NO_INSTANCE_DUPLICATE_CHECK
@@ -274,7 +316,7 @@ i32 initPlayer() {
   wcscpy(cfgPath, exePath);
   wcscat(cfgPath, L"\\skynbs-config.txt");
 
-  // Read config file.
+  // Open config file.
   FILE *f = _wfopen(cfgPath, L"r");
   if (!f) {
     LOG(L"Missing config file.");
@@ -291,17 +333,8 @@ ErrReadCfg:
   LOG(L"Reading argv...\n");
   buildArgFrom(argCallback);
 
-  // Get game window handle.
-  hSkyGameWnd = FindWindowW(NULL, L"光·遇");
-#ifndef DEBUG_NO_GAME_RUNNING_CHECK
-  while (!hSkyGameWnd) {
-    if (MBError(L"游戏未运行，是否重试？", MB_YESNO) == IDNO)
-      return 0;
-    hSkyGameWnd = FindWindowW(NULL, L"光·遇");
-  }
-#endif
-  LOG(L"Get game window handle: 0x%X.\n", hSkyGameWnd);
-  SetForegroundWindow(hSkyGameWnd);
+  if (!getGameWnd())
+    return 0;
 
   // Create hotkey listener.
   hHotkeyThread = CreateThread(NULL, 0, hotkeyThread, 0, 0, &threadId);
@@ -313,35 +346,53 @@ ErrReadCfg:
   return 1;
 }
 
+/*
+DWORD mainThread() {
+  MSG msg;
+
+  SetTimer(NULL, 1, 1000 / 32, NULL);
+
+  while (GetMessageW(&msg, NULL, 0, 0)) {
+    if (msg.message == WM_TIMER) {
+
+    }
+  }
+}*/
+
 int main() {
-  setlocale(LC_ALL, "zh_CN.UTF-8");
+  DWORD pid;
+
+  setlocale(LC_ALL, "");
 
   // Initialize.
-  if (!initPlayer())
+  if (!initSoftware())
     return 1;
 
-  if (wcslen(nbsPath))
+  if (wcslen(nbsPath)) {
     // If specified nbs file through command line, then only play this file.
     options.exitWhenDone = 1;
-
-  switch (player.state) {
-    case STOPPED_EOF:
-      LOG(L"Completed.");
-      break;
-    case STOPPED_ESC:
-      LOG(L"Stopped by exit piano keyboard.");
-      break;
-    case STOPPED_PROG:
-      LOG(L"Stopped by program.");
-      break;
-    case PAUSED_BG:
-      LOG(L"Paused by leave game window.");
-      break;
-    default:
-      break;
+    reinitPlayer();
   }
-  while (1);
+
+  while (1) {
+    // Check whether the game is closed.
+    if (!GetWindowThreadProcessId(hSkyGameWnd, &pid)) {
+      // Exit hotkey process.
+      PostThreadMessageW(threadId, WM_USER_EXIT, 0, 0);
+      break;
+    }
+    if (options.exitWhenDone && player.state == STOPPED_EOF) {
+      // Exit when playing ends.
+      PostThreadMessageW(threadId, WM_USER_EXIT, 0, 0);
+      break;
+    }
+    Sleep(100);
+  }
+
+  // Release resources.
+  WaitForSingleObject(hHotkeyThread, INFINITE);
   ReleaseMutex(hMutex);
+  CloseHandle(hHotkeyThread);
   CloseHandle(hMutex);
   return 0;
 }

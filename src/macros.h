@@ -14,7 +14,4 @@
 #define f32 float
 #define f64 double
 
-#define MBError(text, type) (MessageBoxW(NULL, text, L"Error", MB_ICONERROR | type))
-#define LOG (wprintf)
-
 #endif

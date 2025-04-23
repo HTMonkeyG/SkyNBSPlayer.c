@@ -33,6 +33,9 @@ typedef struct {
 
 typedef struct {
   float tps;
+  char *name;
+  char *author;
+  char *originalAuthor;
   Vector_t ticks;
 } GeneralSongTicks_t;
 

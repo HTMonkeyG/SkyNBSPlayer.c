@@ -68,7 +68,7 @@ int mergeTickTo(Vector_t *v, SkyMusicTick_t *mtr, i16 minInteval) {
   return 0;
 }
 
-/** Convert NBS to key event ticks. */
+/** Convert general note ticks to key event ticks. */
 int buildTicksFrom(
   SkyAutoPlayOptions_t *options,
   GeneralSongTicks_t *file,
@@ -84,9 +84,11 @@ int buildTicksFrom(
   SkyMusicTick_t *tick
     , mtr, mti;
 
-  vec_at(&file->ticks, 0, (void **)&tick);
-  vec_size(&file->ticks, &s);
   vec_init(v, sizeof(SkyMusicTick_t));
+  vec_size(&file->ticks, &s);
+  if (!s)
+    return 0;
+  vec_at(&file->ticks, 0, (void **)&tick);
   th = (int)((float)tick->tick / tempo * tps);
   while (tick) {
     time++;

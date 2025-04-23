@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <locale.h>
 #include <commdlg.h>
+#include <fcntl.h>
 
 #include "note.h"
 #include "format/format.h"
@@ -18,10 +19,16 @@
 #include "config.h"
 #include "text.h"
 
-//#define DEBUG_NO_GAME_RUNNING_CHECK
+// Debug macros.
 //#define DEBUG_NO_INSTANCE_DUPLICATE_CHECK
 #define DEBUG_CONSOLE
 
+// Software macros.
+#define WM_USER_EXIT (0x8000 + 1)
+
+#define MBError(text, type) (MessageBoxW(NULL, text, L"Error", MB_ICONERROR | type))
+
+// Structs.
 typedef struct {
   i8 exitWhenDone;
   i8 printHelp;
