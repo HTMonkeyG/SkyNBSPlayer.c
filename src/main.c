@@ -12,10 +12,9 @@
 
 HWND hSkyGameWnd;
 HANDLE hMutex, hHotkeyThread;
-DWORD threadId;
+DWORD mainThreadId
+  , hotkeyThreadId;
 Vector_t builtTicks = {0};
-f32 tempo;
-SkyMusicTick_t *currentTick = NULL;
 SkyNBSPlayerOptions_t options = {
   .printVersion = 0,
   .printHelp = 0,
@@ -48,6 +47,9 @@ SkyMusicPlayer_t player = {0};
 wchar_t nbsPath[MAX_PATH] = {0}
   , exePath[MAX_PATH];
 
+/**
+ * Get game window handle with window name.
+ */
 i32 getGameWnd() {
   // Get game window handle.
   hSkyGameWnd = FindWindowW(NULL, L"光·遇");
@@ -121,7 +123,8 @@ i32 readAndBuildSong(
   // "volatile u16 bom". So I set it as an byte array and use pointer reinter-
   // -pret cast to convert it.
   if (*(u16 *)&bom == 0xFEFF) {
-    // Convert encoding.
+    // UTF16-LE
+    // cJSON only recieves char, so we should convert wchar_t to char.
     file = _wfreopen(path, L"r, ccs=UTF-8", file);
     wbuffer = malloc(fileSize + 2);
     fread(wbuffer, 1, fileSize, file);
@@ -148,6 +151,7 @@ i32 readAndBuildSong(
     );
     free(wbuffer);
   } else {
+    // Binary file or UTF-8 without BOM.
     buffer = malloc(fileSize);
     fread(buffer, 1, fileSize, file);
   }
@@ -173,6 +177,9 @@ ErrRet:
   return 1;
 }
 
+/**
+ * Create music player with global nbsPath.
+ */
 i32 reinitPlayer() {
   // Browse successed.
   vec_init(&builtTicks, sizeof(SkyMusicTick_t));
@@ -188,6 +195,9 @@ i32 reinitPlayer() {
   );
 }
 
+/**
+ * Config file reader.
+ */
 void cfgCallback(const wchar_t *key, const wchar_t *value) {
   wchar_t *p;
   LOG(L"- %s: %s\n", key, value);
@@ -198,6 +208,9 @@ void cfgCallback(const wchar_t *key, const wchar_t *value) {
     options.playerOptions.fps = wcstoul(value, &p, 10);
 }
 
+/**
+ * Argv reader.
+ */
 void argCallback(const wchar_t *value, int count, int *state) {
   LOG(L"- %d %s\n", count, value);
 
@@ -220,6 +233,9 @@ void argCallback(const wchar_t *value, int count, int *state) {
   }
 }
 
+/**
+ * Listening hotkey input.
+ */
 DWORD WINAPI hotkeyThread(LPVOID lpParam) {
   MSG msg;
  
@@ -245,6 +261,7 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
     else if (msg.message == WM_HOTKEY && msg.wParam == 1) {
       // Open a new file.
       snMusicStop(&player);
+      // If opened a new file while playing, then do not exit.
       options.exitWhenDone = 0;
       // Try to browse file.
       if (!pickFile(exePath, nbsPath, MAX_PATH)) {
@@ -281,7 +298,9 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
   return 0;
 }
 
-/** Initialize the software. */
+/**
+ * Initialize the software.
+ */
 i32 initSoftware() {
   wchar_t cfgPath[MAX_PATH]
     , *p;
@@ -337,7 +356,7 @@ ErrReadCfg:
     return 0;
 
   // Create hotkey listener.
-  hHotkeyThread = CreateThread(NULL, 0, hotkeyThread, 0, 0, &threadId);
+  hHotkeyThread = CreateThread(NULL, 0, hotkeyThread, 0, 0, &hotkeyThreadId);
   if (!hHotkeyThread) {
     MBError(L"创建子线程失败", 0);
     return 0;
@@ -346,48 +365,54 @@ ErrReadCfg:
   return 1;
 }
 
-/*
+/** 
+ * Main function.
+ */
 DWORD mainThread() {
   MSG msg;
+  DWORD pid;
 
   SetTimer(NULL, 1, 1000 / 32, NULL);
 
   while (GetMessageW(&msg, NULL, 0, 0)) {
-    if (msg.message == WM_TIMER) {
-
+    if (msg.message == WM_QUIT)
+      break;
+    else if (msg.message == WM_TIMER) {
+      // Terminate hotkey thread when the game is closed or single file
+      // playing ends.
+      if (
+        !GetWindowThreadProcessId(hSkyGameWnd, &pid)
+        || (options.exitWhenDone && player.state == STOPPED_EOF)
+      ) {
+        // Exit hotkey process.
+        PostThreadMessageW(hotkeyThreadId, WM_USER_EXIT, 0, 0);
+        PostQuitMessage(0);
+      }
     }
   }
-}*/
+
+  KillTimer(NULL, 1);
+
+  return msg.wParam;
+}
 
 int main() {
-  DWORD pid;
-
   setlocale(LC_ALL, "");
+
+  mainThreadId = GetCurrentThreadId();
 
   // Initialize.
   if (!initSoftware())
     return 1;
 
   if (wcslen(nbsPath)) {
-    // If specified nbs file through command line, then only play this file.
+    // If produced file path through command line, then only play this file.
     options.exitWhenDone = 1;
     reinitPlayer();
   }
 
-  while (1) {
-    // Check whether the game is closed.
-    if (!GetWindowThreadProcessId(hSkyGameWnd, &pid)) {
-      // Exit hotkey process.
-      PostThreadMessageW(threadId, WM_USER_EXIT, 0, 0);
-      break;
-    }
-    if (options.exitWhenDone && player.state == STOPPED_EOF) {
-      // Exit when playing ends.
-      PostThreadMessageW(threadId, WM_USER_EXIT, 0, 0);
-      break;
-    }
-    Sleep(100);
-  }
+  // Run main thread.
+  mainThread();
 
   // Release resources.
   WaitForSingleObject(hHotkeyThread, INFINITE);

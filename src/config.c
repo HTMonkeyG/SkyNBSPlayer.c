@@ -84,4 +84,9 @@ int buildHotkeyFrom(const wchar_t *desc, Hotkey_t *hotkey) {
     } else
       return 0;
   }
+
+  hotkey->mod = mod;
+  hotkey->vk = vk;
+
+  return 1;
 }
