@@ -1,14 +1,16 @@
 #ifndef __NOTE_H__
 #define __NOTE_H__
 
+#include <math.h>
+
 #include "format/nbs.h"
 #include "format/format.h"
 #include "macros.h"
 #include "vector.h"
 
 typedef struct {
-  /** Game average frame rate. */
-  i32 fps;
+  /** Minimun allowed inteval between ticks. */
+  i32 minIntevalMs;
   /** Use 1000tps. */
   i8 highTps;
   /** Randomly shift every note along timeline. */

@@ -40,7 +40,7 @@ SkyNBSPlayerOptions_t options = {
     .randomShift = 0,
     .shiftStrength = 0,
     .shiftType = 0,
-    .fps = 60
+    .minIntevalMs = 10
   }
 };
 SkyMusicPlayer_t player = {0};
@@ -200,12 +200,21 @@ i32 reinitPlayer() {
  */
 void cfgCallback(const wchar_t *key, const wchar_t *value) {
   wchar_t *p;
+  u32 fps = 0;
   LOG(L"- %s: %s\n", key, value);
 
   if (!wcscmp(key, L"high_tps"))
     options.playerOptions.highTps = (wcstof(value, &p) != 0);
-  else if (!wcscmp(key, L"frame_rate"))
-    options.playerOptions.fps = wcstoul(value, &p, 10);
+  else if (!wcscmp(key, L"frame_rate")) {
+    fps = wcstoul(value, &p, 10);
+    if (p == value)
+      fps = 60;
+    if (fps < 30)
+      fps = 30;
+    if (fps > 120)
+      fps = 120;
+    options.playerOptions.minIntevalMs = 2 * (u32)ceilf(1000. / (f32)fps);
+  }
 }
 
 /**

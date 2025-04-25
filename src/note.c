@@ -77,7 +77,7 @@ int buildTicksFrom(
   f32 tempo = file->tps
     , tps = options->highTps ? 1000 : 100;
   u32 time = -100
-    , th;
+    , th, minInteval;
   i32 index = 0
     , err;
   size_t s;
@@ -88,15 +88,19 @@ int buildTicksFrom(
   vec_size(&file->ticks, &s);
   if (!s)
     return 0;
+
   vec_at(&file->ticks, 0, (void **)&tick);
-  th = (int)((float)tick->tick / tempo * tps);
+  th = (i32)((f32)tick->tick / tempo * tps);
+
+  // Calculate min inteval in ticks.
+  minInteval = (i32)ceilf((f32)options->minIntevalMs * tps / 1000.);
   while (tick) {
     time++;
-    // Simulate tick by tick
+    // Simulate tick by tick.
     if (time < th)
       continue;
 
-    // Build real tick
+    // Build real tick.
     mtr.tick = th;
     mtr.keyDown = tick->keyDown;
     mtr.keyUp = 0;
@@ -107,27 +111,26 @@ int buildTicksFrom(
     if (!tick->keyDown && !tick->keyUp)
       goto NextTick;
 
-    // Build inteval tick
-    // 20ms inteval
-    mti.tick = mtr.tick + 2 * tps / 100;
+    // Build inteval tick.
+    mti.tick = mtr.tick + minInteval;
 
-    // Merge ticks
-    err = mergeTickTo(v, &mtr, 2 * tps / 100);
+    // Merge ticks.
+    err = mergeTickTo(v, &mtr, minInteval);
     if (err)
       return err;
-    err = mergeTickTo(v, &mti, 2 * tps / 100);
+    err = mergeTickTo(v, &mti, minInteval);
     if (err)
       return err;
 
 NextTick:
-    // Next NBS tick
+    // Next NBS tick.
     index++;
     if (index < s) {
       vec_at(&file->ticks, index, (void **)&tick);
-      th = (int)((float)tick->tick / tempo * tps);
+      th = (i32)((f32)tick->tick / tempo * tps);
     } else
       tick = NULL;
   }
-  // Successfully built
+  // Successfully built.
   return 0;
 }

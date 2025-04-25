@@ -128,7 +128,7 @@ i32 readJsonABC(const char *input, SkyStudioABC *abc) {
   content = cJSON_GetArrayItem(json, 0);
 
   // Only process decrypted file.
-  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(content, "isEncrypted")))
+  if (!cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(content, "isEncrypted")))
     goto ErrExit;
 
   if (!readJsonABCHeader(content, abc))
