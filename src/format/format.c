@@ -84,3 +84,10 @@ i32 readSongFile(char *buffer, size_t fileSize, GeneralSongTicks_t *file) {
   
   return result;
 }
+
+i32 freeSongFile(GeneralSongTicks_t *file) {
+  free(file->author);
+  free(file->name);
+  free(file->originalAuthor);
+  return vec_free(&file->ticks) != NULL;
+}

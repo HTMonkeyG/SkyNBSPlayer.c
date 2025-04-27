@@ -23,18 +23,6 @@ typedef struct {
   i8 allowClamp;
 } SkyAutoPlayOptions_t;
 
-static const u16 KEYS[15] = {
-  21, 22, 23, 24, 25,
-  35, 36, 37, 38, 39,
-  49, 50, 51, 52, 53
-};
-
-static const u8 KEYCODES[15] = {
-  'Y', 'U', 'I', 'O', 'P',
-  'H', 'J', 'K', 'L', ';',
-  'N', 'M', ',', '.', '/'
-};
-
 int buildTicksFrom(
   SkyAutoPlayOptions_t *options,
   GeneralSongTicks_t *file,

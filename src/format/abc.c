@@ -7,8 +7,10 @@ static i32 readJsonString(
 ) {
   cJSON *kv = cJSON_GetObjectItemCaseSensitive(obj, name);
   char *str;
-  if (!cJSON_IsString(kv))
+  if (!cJSON_IsString(kv)) {
+    *result = NULL;
     return 0;
+  }
   str = cJSON_GetStringValue(kv);
   *result = malloc(strlen(str) + 1);
   strcpy(*result, str);
@@ -44,8 +46,10 @@ static i32 readJsonNote(const char *str, ABCTick_t *result) {
       memset(buffer + i, 0, 3);
       type = strtol(buffer, &p, 10);
       note = strtol(buffer + i + 3, &p, 10);
+      if (!note)
+        return 0;
       mask = 1 << note;
-      if (type == 1)
+      if (!type || type == 1)
         result->note1 = mask;
       else if (type == 2)
         result->note2 = mask;
@@ -62,13 +66,14 @@ static i32 readJsonABCHeader(const cJSON *const content, SkyStudioABC *abc) {
   double t1, t2;
   if (
     !readJsonNumber(content, "bpm", &abc->bpm)
-    || !readJsonString(content, "name", &abc->name)
-    || !readJsonString(content, "transcribedBy", &abc->author)
-    || !readJsonString(content, "author", &abc->oriAuthor)
     || !readJsonNumber(content, "pitchLevel", &t1)
     || !readJsonNumber(content, "bitsPerPage", &t2)
   )
     return 0;
+  
+  readJsonString(content, "name", &abc->name);
+  readJsonString(content, "transcribedBy", &abc->author);
+  readJsonString(content, "author", &abc->oriAuthor);
 
   abc->pitchLevel = (int)t1;
   abc->bitsPerPage = (int)t2;
@@ -128,7 +133,7 @@ i32 readJsonABC(const char *input, SkyStudioABC *abc) {
   content = cJSON_GetArrayItem(json, 0);
 
   // Only process decrypted file.
-  if (!cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(content, "isEncrypted")))
+  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(content, "isEncrypted")))
     goto ErrExit;
 
   if (!readJsonABCHeader(content, abc))
@@ -143,9 +148,10 @@ i32 readJsonABC(const char *input, SkyStudioABC *abc) {
   cJSON_ArrayForEach(note, notes) {
     readJsonNumber(note, "time", &time);
     key = cJSON_GetObjectItemCaseSensitive(note, "key");
-    readJsonNote(cJSON_GetStringValue(key), &data);
-    data.time = (int)time;
-    mergeTickInto(tickVec, &data);
+    if (readJsonNote(cJSON_GetStringValue(key), &data)) {
+      data.time = (int)time;
+      mergeTickInto(tickVec, &data);
+    }
   }
 
   cJSON_Delete(json);
@@ -157,7 +163,7 @@ ErrExit:
 }
 
 i32 readABC(const wchar_t *input) {
-  
+  return 0;
 }
 
 void freeABC(SkyStudioABC *abc) {

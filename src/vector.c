@@ -8,11 +8,11 @@ Vector_t *vec_init(Vector_t *v, size_t sizePerElement) {
     return NULL;
   vec_free(v);
   v->perElement = sizePerElement;
-  p = malloc(sizePerElement);
+  p = malloc(sizePerElement * INITIAL_LENGTH);
   if (!p)
     return NULL;
   v->begin = v->end = p;
-  v->endOfSpace = p + sizePerElement;
+  v->endOfSpace = p + sizePerElement * INITIAL_LENGTH;
   return v;
 }
 
@@ -33,6 +33,7 @@ Vector_t *vec_push(Vector_t *v, const void *element) {
     s = v->endOfSpace - v->begin;
     p = malloc(s * 2);
     memcpy(p, v->begin, s);
+    free(v->begin);
     v->begin = p;
     v->end = p + s;
     v->endOfSpace = p + s * 2;

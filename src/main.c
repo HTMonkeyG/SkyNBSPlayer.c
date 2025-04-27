@@ -171,6 +171,7 @@ ErrRet:
   LOG(L"Tempo: %f\n", song.tps);
   LOG(L"Compiling notes...\n");
   buildTicksFrom(&options->playerOptions, &song, builtTicks);
+  printf("a%d\n", freeSongFile(&song));
   vec_size(builtTicks, &tickCount);
   LOG(L"Compiled %llu ticks.\n", tickCount);
 
@@ -278,7 +279,7 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
         if (CommDlgExtendedError())
           MBError(L"选择文件失败", 0);
         else
-          LOG(L"User cancelled file selection.");
+          LOG(L"User cancelled file selection.\n");
         continue;
       }
       if (!reinitPlayer())

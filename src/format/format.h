@@ -46,5 +46,6 @@ static const SkyNoteMasks_t CVT[25] = {
 };
 
 i32 readSongFile(char *buffer, size_t fileSize, GeneralSongTicks_t *file);
+i32 freeSongFile(GeneralSongTicks_t *file);
 
 #endif

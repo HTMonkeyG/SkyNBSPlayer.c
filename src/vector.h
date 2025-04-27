@@ -6,6 +6,8 @@
 
 #include "macros.h"
 
+#define INITIAL_LENGTH 1
+
 typedef struct {
   void *begin;
   void *end;
