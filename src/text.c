@@ -12,9 +12,9 @@ void printHelp() {
 }
 
 void printVersion() {
-  wprintf(L"Sky:Cotl NBS Player %ls\n", VERSION);
-  wprintf(L"Copyright (c) 2025 HTMonkeyG\n");
-  wprintf(L"<https://www.github.com/HTMonkeyG/SkyNBSPlayer-C>\n");
+  wprintf(L"  Sky:Cotl NBS Player %ls\n", VERSION);
+  wprintf(L"  Copyright (c) 2025 HTMonkeyG\n");
+  wprintf(L"  <https://www.github.com/HTMonkeyG/SkyNBSPlayer-C>\n");
 }
 
 void logTimeStamp(const wchar_t *format, ...) {

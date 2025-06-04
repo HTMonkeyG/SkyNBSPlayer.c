@@ -359,7 +359,7 @@ ErrReadCfg:
   }
 
   // Read argv and config file.
-  LOG(L"Reading config: %ls...\n", cfgPath);
+  LOG(L"Reading config: %ls\n", cfgPath);
   buildConfigFrom(f, cfgCallback);
   fclose(f);
   LOG(L"Reading argv...\n");
@@ -416,6 +416,8 @@ int main() {
 
   mainThreadId = GetCurrentThreadId();
 
+  printVersion();
+
   // Initialize.
   if (!initSoftware())
     return 1;
@@ -426,7 +428,7 @@ int main() {
     reinitPlayer();
   }
 
-  // Run main thread.
+  // Run the main thread.
   mainThread();
 
   // Release resources.
