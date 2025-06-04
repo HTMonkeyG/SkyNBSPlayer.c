@@ -99,7 +99,7 @@ i32 readAndBuildSong(
   if (!path || !builtTicks || !options)
     return 0;
 
-  LOG(L"Reading song file: %s\n", path);
+  LOG(L"Reading song file: %ls\n", path);
 
   file = _wfopen(path, L"rb");
   if (!file)
@@ -168,10 +168,13 @@ ErrRet:
     MBError(L"无效音乐文件", 0);
     return 0;
   }
-  LOG(L"Tempo: %f\n", song.tps);
+  LOG(L"Song meta:\n");
+  LOG(L"- Name: %ls\n", song.name);
+  LOG(L"- Author: %ls\n", song.originalAuthor);
+  LOG(L"- Transcriber: %ls\n", song.author);
+  LOG(L"- Tempo: %f\n", song.tps);
   LOG(L"Compiling notes...\n");
   buildTicksFrom(&options->playerOptions, &song, builtTicks);
-  printf("a%d\n", freeSongFile(&song));
   vec_size(builtTicks, &tickCount);
   LOG(L"Compiled %llu ticks.\n", tickCount);
 
@@ -202,7 +205,7 @@ i32 reinitPlayer() {
 void cfgCallback(const wchar_t *key, const wchar_t *value) {
   wchar_t *p;
   u32 fps = 0;
-  LOG(L"- %s: %s\n", key, value);
+  LOG(L"- %ls: %ls\n", key, value);
 
   if (!wcscmp(key, L"high_tps"))
     options.playerOptions.highTps = (wcstof(value, &p) != 0);
@@ -222,7 +225,7 @@ void cfgCallback(const wchar_t *key, const wchar_t *value) {
  * Argv reader.
  */
 void argCallback(const wchar_t *value, int count, int *state) {
-  LOG(L"- %d %s\n", count, value);
+  LOG(L"- %d %ls\n", count, value);
 
   if (!count && (!wcscmp(value, L"i") || !wcscmp(value, L"input")))
     // -i <file to read>
@@ -230,13 +233,13 @@ void argCallback(const wchar_t *value, int count, int *state) {
   
   if (*state == 1 && count > 0) {
     // -i <file to read>
-    LOG(L"Input file: %s\n", value);
+    LOG(L"Input file: %ls\n", value);
     wcscpy_s(nbsPath, MAX_PATH, value);
     *state = 0;
   }
   if (*state == AS_INITIAL && count == 2) {
     // skycol-nbs.exe <file to read>
-    LOG(L"Input file: %s\n", value);
+    LOG(L"Input file: %ls\n", value);
     options.exitWhenDone = 1;
     wcscpy_s(nbsPath, MAX_PATH, value);
     *state = 0;
@@ -271,7 +274,7 @@ DWORD WINAPI hotkeyThread(LPVOID lpParam) {
     else if (msg.message == WM_HOTKEY && msg.wParam == 1) {
       // Open a new file.
       snMusicStop(&player);
-      // If opened a new file while playing, then do not exit.
+      // If opened a new file while playing, then does not exit.
       options.exitWhenDone = 0;
       // Try to browse file.
       if (!pickFile(exePath, nbsPath, MAX_PATH)) {
@@ -356,7 +359,7 @@ ErrReadCfg:
   }
 
   // Read argv and config file.
-  LOG(L"Reading config: %s...\n", cfgPath);
+  LOG(L"Reading config: %ls...\n", cfgPath);
   buildConfigFrom(f, cfgCallback);
   fclose(f);
   LOG(L"Reading argv...\n");
@@ -399,6 +402,8 @@ DWORD mainThread() {
         PostQuitMessage(0);
       }
     }
+    TranslateMessage(&msg);
+    DispatchMessageW(&msg);
   }
 
   KillTimer(NULL, 1);

@@ -1,4 +1,14 @@
-/.vscode/
-/dist/
+# Folders.
+.vscode/
+dist/
+.VSCodeCounter/
 
+# Wildcard files.
 test*
+*.bak
+
+# CMake
+CMakeCache*
+*.cmake
+CMakeFiles*
+CMakeLists.txt

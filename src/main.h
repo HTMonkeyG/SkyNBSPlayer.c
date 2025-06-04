@@ -26,7 +26,7 @@
 // Software macros.
 #define WM_USER_EXIT (0x8000 + 1)
 
-#define MBError(text, type) (MessageBoxW(NULL, text, L"Error", MB_ICONERROR | type))
+#define MBError(text, type) (MessageBoxW(NULL, (text), L"Error", MB_ICONERROR | (type)))
 
 // Structs.
 typedef struct {

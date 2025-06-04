@@ -12,7 +12,7 @@ void printHelp() {
 }
 
 void printVersion() {
-  wprintf(L"Sky:Cotl NBS Player %s\n", VERSION);
+  wprintf(L"Sky:Cotl NBS Player %ls\n", VERSION);
   wprintf(L"Copyright (c) 2025 HTMonkeyG\n");
   wprintf(L"<https://www.github.com/HTMonkeyG/SkyNBSPlayer-C>\n");
 }

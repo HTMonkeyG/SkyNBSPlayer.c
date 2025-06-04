@@ -7,6 +7,7 @@
 #include "format/format.h"
 #include "macros.h"
 #include "vector.h"
+#include "random.h"
 
 typedef struct {
   /** Minimun allowed inteval between ticks. */
