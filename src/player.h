@@ -21,10 +21,15 @@ typedef enum {
   PAUSED_PROG = 2
 } SkyMusicPlayState_t;
 
-typedef struct {
+typedef struct SkyMusicPlayer_t SkyMusicPlayer_t;
+
+typedef void (*SkyMusicPlayerCallback_t)(const SkyMusicPlayer_t *player);
+
+struct SkyMusicPlayer_t {
   /* Constant values */
   /** Current player state */
   SkyMusicPlayState_t state;
+  SkyMusicPlayerCallback_t callback;
   //CRITICAL_SECTION critical;
   HANDLE mutex;
   u32 timerId;
@@ -39,7 +44,7 @@ typedef struct {
   i32 checkState;
   i32 savedTickCount;
   i64 savedTickIndex;
-} SkyMusicPlayer_t;
+};
 
 static const u16 KEYS[15] = {
   21, 22, 23, 24, 25,
@@ -57,7 +62,8 @@ i32 snCreatePlayer(
   SkyMusicPlayer_t *player,
   SkyAutoPlayOptions_t *options,
   HWND hGameWnd,
-  Vector_t *builtTicks
+  Vector_t *builtTicks,
+  SkyMusicPlayerCallback_t callback
 );
 i32 snMusicPlay(SkyMusicPlayer_t *player);
 i32 snMusicResume(SkyMusicPlayer_t *player);

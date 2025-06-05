@@ -104,7 +104,6 @@ static void CALLBACK snTick(
     ps = checkCanPlay(player->hGameWnd);
     // Reset countdown.
     player->checkState = 1000 / player->inteval / 20;
-    //printf("check - %d\n", player->tickCount);
     if (!ps) {
       // Save state.
       player->savedTickCount = player->tickCount;
@@ -131,10 +130,14 @@ static void CALLBACK snTick(
     player->state = player->tickIndex >= player->maxIndex
       ? STOPPED_EOF
       : STOPPED_ESC;
+    if (player->callback)
+      (*player->callback)(player);
     goto Exit;
   } else if (ps == 1) {
     // Set state to PAUSED_*.
     player->state = PAUSED_BG;
+    if (player->callback)
+      (*player->callback)(player);
     goto Exit;
   }
 
@@ -162,10 +165,12 @@ i32 snCreatePlayer(
   SkyMusicPlayer_t *player,
   SkyAutoPlayOptions_t *options,
   HWND hGameWnd,
-  Vector_t *builtTicks
+  Vector_t *builtTicks,
+  SkyMusicPlayerCallback_t callback
 ) {
   TIMECAPS tc;
   UINT res;
+
   if (!player || !hGameWnd || !builtTicks)
     return 0;
   // Get min and max system timer resolution.
@@ -173,11 +178,14 @@ i32 snCreatePlayer(
     return 0;
   // Clamp target resolution.
   res = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
-  // Initialize timer.
+
+  // Initialize player.
   memset(player, 0, sizeof(SkyMusicPlayer_t));
+
   player->mutex = CreateMutexA(NULL, 0, NULL);
   if (!player->mutex)
     return 0;
+
   player->timerRes = res;
   player->inteval = options->highTps ? 1 : 10;
   player->builtTicks = builtTicks;
@@ -188,7 +196,12 @@ i32 snCreatePlayer(
   vec_size(builtTicks, &player->maxIndex);
   vec_at(builtTicks, 0, (void **)&player->currentTick);
   player->timerId = 0;
-  //InitializeCriticalSection(&player->critical);
+
+  if (callback) {
+    player->callback = callback;
+    (*player->callback)(player);
+  }
+
   return 1;
 }
 
@@ -318,7 +331,6 @@ i32 snRemovePlayer(SkyMusicPlayer_t *player) {
   if (!player)
     return 0;
   snMusicStop(player);
-  //DeleteCriticalSection(&player->critical);
   CloseHandle(player->mutex);
   memset(player, 0, sizeof(SkyMusicPlayer_t));
   return 1;
