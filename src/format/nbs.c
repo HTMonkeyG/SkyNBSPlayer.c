@@ -79,8 +79,8 @@ static void readLengthedString(NBSReader *reader, char **string) {
     return;
   }
 
-  reader->cursor += length;
   memcpy(*string, reader->buffer + reader->cursor, length);
+  reader->cursor += length;
   (*string)[length] = 0;
 }
 

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall #-Os -ffunction-sections -fdata-sections -Wl,--gc-sections -static -flto -s
+CFLAGS = -Wall
 LDFLAGS = -lwinmm -lcomdlg32
 
 TARGET = skycol-nbs.exe
@@ -11,6 +11,10 @@ RES_DIR = ./res
 SRC_DIRS = src $(wildcard src/*/)
 SRC_FILES = $(wildcard src/*.c src/*/*.c)
 OBJ = $(addprefix dist/, $(notdir $(SRC_FILES:.c=.o))) $(DIST_DIR)/res.o
+
+ifeq ($(RELEASE),1)
+CFLAGS += -Os -ffunction-sections -fdata-sections -Wl,--gc-sections -static -flto -s
+endif
 
 vpath %.c $(SRC_DIRS)
 

@@ -24,14 +24,20 @@ static i32 convertFromNBS(NBS *nbs, GeneralSongTicks_t *file) {
   if (!nbs || !file)
     return 0;
 
-  file->tps = (float)nbs->header.tempo / 100.;
+  file->tps = (f32)nbs->header.tempo / 100.;
+  file->author = malloc(strlen(nbs->header.author) + 1);
+  file->originalAuthor = malloc(strlen(nbs->header.originAuthor) + 1);
+  file->name = malloc(strlen(nbs->header.name) + 1);
+  strcpy(file->author, nbs->header.author);
+  strcpy(file->originalAuthor, nbs->header.originAuthor);
+  strcpy(file->name, nbs->header.name);
   vec_size(&nbs->ticks, &s);
 
   for (size_t i = 0; i < s; i++) {
     vec_at(&nbs->ticks, i, (void **)&tick);
     currentTick.tick = tick->tick;
     buildKeysFrom(tick, &currentTick.keyDown, &currentTick.keyUp);
-    // Won't do anything when no valid note.
+    // Do nothing when no valid note.
     if (currentTick.keyDown || currentTick.keyUp)
       vec_push(&file->ticks, &currentTick);
   }
@@ -48,6 +54,12 @@ static i32 convertFromABC(SkyStudioABC *abc, GeneralSongTicks_t *file) {
     return 0;
 
   file->tps = 1000.;
+  file->author = malloc(strlen(abc->author) + 1);
+  file->originalAuthor = malloc(strlen(abc->oriAuthor) + 1);
+  file->name = malloc(strlen(abc->name) + 1);
+  strcpy(file->author, abc->author);
+  strcpy(file->originalAuthor, abc->oriAuthor);
+  strcpy(file->name, abc->name);
   vec_size(&abc->ticks, &s);
 
   for (size_t i = 0; i < s; i++) {

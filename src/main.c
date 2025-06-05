@@ -169,12 +169,13 @@ ErrRet:
     return 0;
   }
   LOG(L"Song meta:\n");
-  LOG(L"- Name: %ls\n", song.name);
-  LOG(L"- Author: %ls\n", song.originalAuthor);
-  LOG(L"- Transcriber: %ls\n", song.author);
+  LOG(L"- Name: %hs\n", song.name);
+  LOG(L"- Author: %hs\n", song.originalAuthor);
+  LOG(L"- Transcriber: %hs\n", song.author);
   LOG(L"- Tempo: %f\n", song.tps);
   LOG(L"Compiling notes...\n");
   buildTicksFrom(&options->playerOptions, &song, builtTicks);
+  freeSongFile(&song);
   vec_size(builtTicks, &tickCount);
   LOG(L"Compiled %llu ticks.\n", tickCount);
 
@@ -195,7 +196,8 @@ i32 reinitPlayer() {
     &player,
     &options.playerOptions,
     hSkyGameWnd,
-    &builtTicks
+    &builtTicks,
+    NULL
   );
 }
 
